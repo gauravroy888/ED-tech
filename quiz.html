@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 4K Smartboard Viewport Fix -->
+    <script>
+      (function () {
+        var dpr = window.devicePixelRatio || 1;
+        var sw  = window.screen.width * dpr;
+        if (sw >= 3840) {
+          var vp = document.querySelector('meta[name=viewport]');
+          if (vp) vp.setAttribute('content', 'width=1920, initial-scale=1.0');
+        }
+      })();
+    </script>
+    <title>Light and Shadows Quiz</title>
+    <!-- Include Edtech Island styles -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- CDNs for Tailwind, React, Babel, and Lucide Icons -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            animation: {
+              'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          }
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body { margin: 0; padding: 0; overflow-x: hidden; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-transparent">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- CUSTOM ICON COMPONENT FOR VANILLA HTML ---
+        const LucideIcon = ({ name, className }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (iconRef.current && window.lucide) {
+                    iconRef.current.innerHTML = ''; 
+                    const iconEl = document.createElement('i');
+                    iconEl.setAttribute('data-lucide', name);
+                    if (className) iconEl.setAttribute('class', className);
+                    iconRef.current.appendChild(iconEl);
+                    window.lucide.createIcons({ root: iconRef.current, attrs: { class: className } });
+                }
+            }, [name, className]);
+            return <span ref={iconRef} className="inline-flex items-center justify-center pointer-events-none"></span>;
+        };
+
+        // --- UI TRANSLATIONS ---
+        const LANGUAGES = {
+            en: { name: 'English' },
+            hi: { name: 'हिन्दी (Hindi)' }
+        };
+
+        const T = {
+            en: {
+                title: "Quiz", subtitle: "Chapter 10: Light and Shadows",
+                zenMode: "Zen Mode", zenDesc: "Take your time. Think critically.",
+                challengeMode: "Challenge Mode", challengeDesc: "15 Minutes. Prove your mastery.",
+back: "Back", quizProgress: "Quiz Progress",
+                sectionScore: "Section Score", questionsDone: "Questions Done",
+                timeMode: "Time Mode", hidden: "Hidden",
+                sections: "Sections", complete: "Quiz Complete!",
+                percentage: "Percentage", retake: "Retake Quiz",
+                nextQuestion: "Next Question", submitSection: "Submit Section", 
+                reviewBtn: "Review", finalSubmit: "Final Submit", reviewTitle: "Review Your Answers",
+                exitConfirm: "Are you sure you want to exit?", exitWarning: "Your current progress will be lost.",
+                yesExit: "Yes, Exit", cancel: "Cancel",
+                submitConfirm: "Submit Quiz?", submitWarning: "You cannot change your answers after submitting.", yesSubmit: "Yes, Submit", backToQuiz: "Back to Quiz",
+                analyseBtn: "Analyse Answers", analysisTitle: "Quiz Analysis", backToResults: "Back to Results", explanationLabel: "Explanation"
+            },
+            hi: {
+                title: "प्रश्नोत्तरी", subtitle: "अध्याय 10: प्रकाश और छाया",
+                zenMode: "ज़ेन मोड", zenDesc: "अपना समय लें। गंभीर रूप से सोचें।",
+                challengeMode: "चैलेंज मोड", challengeDesc: "15 मिनट। अपनी महारत साबित करें।",
+                back: "मेनू पर वापस जाएं", quizProgress: "प्रश्नोत्तरी प्रगति",
+                sectionScore: "अनुभाग स्कोर", questionsDone: "प्रश्न पूरे हुए",
+                timeMode: "समय मोड", hidden: "छिपा हुआ",
+                sections: "अनुभाग", complete: "प्रश्नोत्तरी पूर्ण!",
+                percentage: "प्रतिशत", retake: "फिर से प्रयास करें",
+                nextQuestion: "अगला प्रश्न", submitSection: "अनुभाग जमा करें", 
+                reviewBtn: "समीक्षा", finalSubmit: "अंतिम सबमिट", reviewTitle: "अपने उत्तरों की समीक्षा करें",
+                exitConfirm: "क्या आप वाकई बाहर निकलना चाहते हैं?", exitWarning: "आपकी वर्तमान प्रगति खो जाएगी।",
+                yesExit: "हाँ, बाहर निकलें", cancel: "रद्द करें",
+                submitConfirm: "क्विज़ सबमिट करें?", submitWarning: "सबमिट करने के बाद आप अपने उत्तर नहीं बदल सकते।", yesSubmit: "हाँ, सबमिट करें", backToQuiz: "क्विज़ पर वापस जाएं",
+                analyseBtn: "उत्तरों का विश्लेषण करें", analysisTitle: "प्रश्नोत्तरी विश्लेषण", backToResults: "परिणामों पर वापस जाएं", explanationLabel: "स्पष्टीकरण"
+            }
+        };
+
+        const SECTIONS = [
+            { id: 'see_things', title: 'How do we see things?', icon: 'eye' },
+            { id: 'materials', title: 'Transparent, translucent & opaque', icon: 'box' },
+            { id: 'shadows', title: 'Formation of shadows', icon: 'monitor-up' },
+            { id: 'eclipse', title: 'Lunar and solar eclipse', icon: 'moon' }
+        ];
+
+        const QUIZ_DATA = {
+            see_things: [
+                { id: 'q1_1', text: "If you are in a completely dark room with a shiny mirror and a red apple, what will you see?", options: ["The mirror, because it's shiny.", "The apple, because it's red.", "Nothing, because there is no light to reflect.", "Both, but very dimly."], correct: 2, hint: "Remember what is needed for reflection to happen.", explanation: "In complete darkness, there is no light to reflect off the mirror or the apple, making them both invisible to your eyes.", icon: "apple" },
+                { id: 'q1_2', text: "Why can't you see around corners, even in daylight?", options: ["Light rays bend too slowly.", "Light travels in straight lines.", "Your eyes are not strong enough.", "Air blocks light when it bends."], correct: 1, hint: "Think about the path light takes.", explanation: "Light travels in straight lines and cannot bend around opaque obstacles like walls or corners.", icon: "corner-up-right" },
+                { id: 'q1_3', text: "Which of these is NOT a source of light, but only reflects it?", options: ["A firefly", "The Sun", "A television screen", "The Moon"], correct: 3, hint: "Which one doesn't make its own energy?", explanation: "The Moon does not produce its own light; it simply reflects the light coming from the Sun.", icon: "moon" },
+                { id: 'q1_4', text: "How does a periscope help a submarine crew see above the water?", options: ["It bends light using lenses.", "It bounces light off two mirrors placed at angles.", "It uses cameras and screens.", "It makes the water transparent."], correct: 1, hint: "Think about how reflection can change direction.", explanation: "A periscope uses two mirrors set at 45-degree angles to bounce light down a tube, allowing you to see objects above.", icon: "telescope" },
+                { id: 'q1_5', text: "If you look at a blue shirt under purely red light, what color will it appear?", options: ["Blue", "Red", "Purple", "Black"], correct: 3, hint: "A blue shirt absorbs red light. What bounces back?", explanation: "A blue shirt absorbs all colors except blue. Since there is no blue light in a pure red light beam, it reflects nothing and appears black.", icon: "shirt" },
+                { id: 'q1_6', text: "Why do we see a laser beam in a dusty room but not in a clean room?", options: ["Dust creates light.", "Dust reflects the light towards our eyes.", "The laser gets hotter in dust.", "Clean air absorbs all the laser light."], correct: 1, hint: "We only see light when it enters our eyes.", explanation: "Dust particles in the air scatter the laser light, directing some of it into our eyes so we can see the beam's path.", icon: "wind" },
+                { id: 'q1_7', text: "What part of the eye acts like a screen where the image is formed?", options: ["Pupil", "Lens", "Retina", "Iris"], correct: 2, hint: "It's at the back of the eye.", explanation: "The retina is the light-sensitive layer at the back of the eye where images are focused, acting like a projection screen.", icon: "eye" },
+                { id: 'q1_8', text: "Why do pupils get larger in a dark room?", options: ["To focus better.", "To let more light in.", "To change eye color.", "To rest the eye muscles."], correct: 1, hint: "Think of the pupil like a window.", explanation: "Pupils dilate (widen) in darkness to allow as much light as possible to enter the eye, improving night vision.", icon: "maximize" },
+                { id: 'q1_9', text: "Smooth, shiny surfaces form clear reflections because they bounce light rays...", options: ["In many different directions.", "Back in the exact same parallel direction.", "Faster than rough surfaces.", "Only if the light is white."], correct: 1, hint: "Think about a bouncing ball on a flat vs bumpy floor.", explanation: "Smooth surfaces act like mirrors, reflecting incoming parallel light rays back in exactly the same organized parallel direction.", icon: "sparkles" },
+                { id: 'q1_10', text: "What happens to light when it enters water from air?", options: ["It speeds up and bends.", "It slows down and bends.", "It stops completely.", "It turns into heat."], correct: 1, hint: "Water is denser than air.", explanation: "Because water is denser than air, light slows down as it enters, causing the light rays to bend (refract).", icon: "droplets" },
+                { id: 'q1_11', text: "Which surface would scatter light the most?", options: ["A calm lake", "A polished silver spoon", "A crumpled piece of aluminum foil", "A clean window"], correct: 2, hint: "Scattering means bouncing in all directions.", explanation: "A crumpled piece of foil has a highly uneven surface, which scatters reflected light rays in many different, random directions.", icon: "layers" },
+                { id: 'q1_12', text: "If you want to read a book comfortably, where should the light source be?", options: ["Shining directly into your eyes.", "Behind the book, shining towards you.", "Behind you, shining onto the book.", "Under the book."], correct: 2, hint: "You want the light to bounce off the page to your eyes.", explanation: "Having the light behind you shining directly onto the book ensures the light reflects off the page and into your eyes without glare.", icon: "book-open" },
+                { id: 'q1_13', text: "Why does a pencil look bent when placed in a glass of water?", options: ["The water bends the pencil.", "Light bends as it moves from water to air.", "The glass magnifies the pencil.", "Water absorbs the straight light rays."], correct: 1, hint: "This is called refraction.", explanation: "Light travels at different speeds in water versus air. This change in speed causes the light to bend (refract), creating the illusion.", icon: "glass-water" },
+                { id: 'q1_14', text: "What color is sunlight made of?", options: ["Only yellow light.", "Yellow and white light.", "All colors of the rainbow combined.", "No colors, it's invisible."], correct: 2, hint: "Think of a prism or a rainbow.", explanation: "White sunlight is actually a mixture of all the colors of the visible spectrum, which can be seen when separated by a prism.", icon: "sun" },
+                { id: 'q1_15', text: "Why do we wear sunglasses on a bright day?", options: ["To make things look darker.", "To block harmful UV rays and reduce glare.", "To change the color of the sky.", "To help us see in the dark later."], correct: 1, hint: "It's not just about brightness, but eye protection.", explanation: "Sunglasses protect the eyes by blocking harmful ultraviolet (UV) rays and reducing intense, blinding light (glare).", icon: "glasses" },
+                { id: 'q1_16', text: "If an object absorbs all colors of light, what color does it appear?", options: ["White", "Black", "Transparent", "Grey"], correct: 1, hint: "What do you see when no light reaches your eye?", explanation: "When an object absorbs all visible light and reflects none back to your eyes, your brain perceives it as black.", icon: "circle" },
+                { id: 'q1_17', text: "If an object reflects all colors of light equally, what color does it appear?", options: ["White", "Black", "A rainbow", "Invisible"], correct: 0, hint: "Combine all colors of light.", explanation: "When an object reflects all wavelengths of the visible spectrum equally, the combined light enters our eyes and we see white.", icon: "palette" },
+                { id: 'q1_18', text: "How do animals with 'eyeshine' (like cats) see better at night?", options: ["Their eyes produce light.", "They have a mirror-like layer that bounces light back through the retina.", "Their pupils never close.", "They use echolocation instead of light."], correct: 1, hint: "It gives their eyes a second chance to catch light.", explanation: "They have a reflective layer (tapetum lucidum) behind the retina that bounces light back through the eye, doubling the light they can detect.", icon: "cat" },
+                { id: 'q1_19', text: "Why is it dangerous to look directly at the Sun?", options: ["It will make you sneeze.", "The intense light and UV rays can damage the retina.", "It causes temporary blindness that never goes away.", "The Sun's gravity pulls on your eyes."], correct: 1, hint: "Think about using a magnifying glass on a leaf.", explanation: "The Sun emits intense visible light and UV radiation that your eye's lens focuses directly onto the retina, which can cause permanent burns.", icon: "shield-alert" },
+                { id: 'q1_20', text: "When you look at a mirror, your left hand appears as the reflection's...", options: ["Left hand", "Right hand", "Top hand", "It disappears"], correct: 1, hint: "Mirrors flip things laterally.", explanation: "Mirrors create a lateral inversion, meaning left and right are perfectly swapped in the reflection.", icon: "split-square-horizontal" }
+            ],
+            materials: [
+                { id: 'q2_1', text: "Why do bathrooms often have frosted glass windows instead of clear glass?", options: ["Frosted glass is stronger.", "It lets light in (translucent) but prevents people from seeing details.", "It completely blocks all light (opaque).", "It changes the color of the sunlight."], correct: 1, hint: "Think about privacy vs. needing light.", explanation: "Frosted glass is translucent. It scatters light so the room stays bright, but prevents clear shapes from being seen, ensuring privacy.", icon: "bath" },
+                { id: 'q2_2', text: "If you want to build a greenhouse to grow plants, what material should the roof be?", options: ["Wood", "Cardboard", "Clear plastic or glass", "Frosted glass"], correct: 2, hint: "Plants need maximum direct sunlight.", explanation: "Plants need maximum sunlight for photosynthesis, so the roof should be made of a clear, transparent material that lets all light pass through.", icon: "tree-pine" },
+                { id: 'q2_3', text: "Which of these is an opaque object?", options: ["A clean swimming pool", "A piece of tissue paper", "A wooden door", "A magnifying glass"], correct: 2, hint: "Which one completely blocks light?", explanation: "A wooden door is completely opaque, meaning it absorbs or reflects all light and lets none pass through.", icon: "door-closed" },
+                { id: 'q2_4', text: "You are reading a secret map with a flashlight under a blanket. The blanket is most likely...", options: ["Transparent", "Translucent", "Opaque", "Luminous"], correct: 2, hint: "Can someone outside the blanket see the map clearly?", explanation: "If you are hiding under it, the blanket must be blocking the light from escaping, meaning it acts as an opaque barrier.", icon: "map" },
+                { id: 'q2_5', text: "Deep ocean water is completely dark. What does this tell you about thick layers of water?", options: ["Water becomes opaque when it is very deep.", "Water is always opaque.", "Water glows in the dark.", "Light travels faster in deep water."], correct: 0, hint: "Even clear things can block light if there is enough of them.", explanation: "Even transparent substances like water absorb a tiny amount of light. Over great depths, this eventually absorbs all light, making the deep ocean opaque.", icon: "waves" },
+                { id: 'q2_6', text: "Wax paper is best described as...", options: ["Transparent", "Translucent", "Opaque", "Reflective"], correct: 1, hint: "Can you read a book clearly through it?", explanation: "Wax paper is translucent. It allows some light to pass through but scatters it, making objects on the other side look blurry.", icon: "scroll" },
+                { id: 'q2_7', text: "Why is a car's windshield made of transparent material?", options: ["So the car looks nice.", "To stop the wind.", "So the driver can see the road perfectly clearly.", "To keep the car warm."], correct: 2, hint: "Safety requires clear vision.", explanation: "Windshields must be perfectly transparent so the driver has a clear, undistorted view of the road for safety.", icon: "car" },
+                { id: 'q2_8', text: "Which material casts the darkest, sharpest shadow?", options: ["A clear glass cup", "A sheet of tracing paper", "A thick brick", "A plastic water bottle"], correct: 2, hint: "Dark shadows need light to be completely blocked.", explanation: "A thick brick is completely opaque and blocks all light, creating a highly dark and sharp shadow.", icon: "box" },
+                { id: 'q2_9', text: "Sunglasses lenses are usually...", options: ["Transparent", "Translucent", "Opaque", "Mirrored on both sides"], correct: 1, hint: "They let some light through, but not all.", explanation: "Sunglasses are translucent; they allow some light to pass through so you can see, but absorb the rest to reduce glare.", icon: "glasses" },
+                { id: 'q2_10', text: "If you paint a clear glass jar with black paint, it changes from...", options: ["Transparent to translucent.", "Opaque to transparent.", "Transparent to opaque.", "Translucent to opaque."], correct: 2, hint: "Paint blocks light.", explanation: "Black paint absorbs light. Applying it to clear, transparent glass stops light from passing through, making the glass opaque.", icon: "brush" },
+                { id: 'q2_11', text: "Why do we use lampshades instead of bare bulbs?", options: ["To make the light brighter.", "To make the light source translucent, spreading it softly and reducing glare.", "To make the light opaque.", "To save electricity."], correct: 1, hint: "Staring at a bare bulb hurts.", explanation: "Lampshades act as a translucent barrier to scatter the harsh light of the bulb, creating a softer, more comfortable room lighting.", icon: "lamp" },
+                { id: 'q2_12', text: "A cloud on a foggy day acts like a...", options: ["Transparent layer", "Translucent layer", "Opaque solid", "Mirror"], correct: 1, hint: "It's bright outside, but you can't see the sun clearly.", explanation: "Clouds scatter sunlight. They allow general brightness to pass through but obscure the clear shape of the sun, acting as a translucent layer.", icon: "cloud" },
+                { id: 'q2_13', text: "Which of these objects would NOT cast a noticeable shadow on a sunny day?", options: ["A tree", "A clean pane of glass", "A person", "A parked car"], correct: 1, hint: "Shadows need blocked light.", explanation: "A perfectly clean pane of glass is transparent and lets almost all light pass straight through, so it casts virtually no shadow.", icon: "image" },
+                { id: 'q2_14', text: "Stained glass windows in churches are beautiful because they are...", options: ["Opaque and block light.", "Transparent and invisible.", "Translucent and color the light passing through.", "Reflective like mirrors."], correct: 2, hint: "They let colored light enter the building.", explanation: "Stained glass is translucent; it allows light to pass through but filters it to display specific vibrant colors inside.", icon: "church" },
+                { id: 'q2_15', text: "What happens to light when it hits an opaque object?", options: ["It passes right through.", "It bends and continues.", "It is absorbed or reflected, but none passes through.", "It turns into sound."], correct: 2, hint: "It stops going forward.", explanation: "Opaque objects do not transmit light. They either absorb the light energy or reflect it back into the environment.", icon: "stop-circle" },
+                { id: 'q2_16', text: "If you hold a piece of plain printer paper up to a bright window, it is...", options: ["Transparent", "Translucent", "Opaque", "Luminous"], correct: 1, hint: "You can see light, but not clear shapes outside.", explanation: "Plain paper allows a diffuse glow of light to pass through, but you cannot see clear images through it, making it translucent.", icon: "file-text" },
+                { id: 'q2_17', text: "Aluminum foil is...", options: ["Transparent", "Translucent", "Opaque", "Only opaque in the dark"], correct: 2, hint: "Can you see through it at all?", explanation: "Aluminum foil reflects and blocks all light, meaning you cannot see through it at all. Therefore, it is opaque.", icon: "hexagon" },
+                { id: 'q2_18', text: "Why are measuring cups often made of clear plastic or glass?", options: ["They are cheaper to make.", "So you can transparently see exactly how much liquid is inside.", "So they cast interesting shadows.", "To keep liquids cool."], correct: 1, hint: "Function dictates material.", explanation: "Transparent materials allow you to see the exact level and contents of the liquid inside without any obstruction.", icon: "beaker" },
+                { id: 'q2_19', text: "Can an object be both transparent and reflective?", options: ["No, it's impossible.", "Yes, like a clear glass window reflecting the inside of a lit room at night.", "Only if it is made of water.", "Only if it is opaque."], correct: 1, hint: "Have you ever seen your reflection in a window?", explanation: "Yes. Glass transmits most light (transparent) but also reflects a small amount, which is why windows show reflections at night.", icon: "rotate-ccw" },
+                { id: 'q2_20', text: "A material that lets absolutely no light through is...", options: ["Translucent", "Transparent", "Opaque", "Refractive"], correct: 2, hint: "Think of a brick wall.", explanation: "By definition, an opaque material completely blocks all light rays from passing through it.", icon: "shield" }
+            ],
+            shadows: [
+                { id: 'q3_1', text: "If you walk towards a streetlamp at night, what happens to your shadow?", options: ["It gets shorter and moves behind you.", "It gets longer and moves in front of you.", "It disappears completely.", "It stays the exact same size."], correct: 0, hint: "Think about the angle of the light hitting you from above.", explanation: "As the light source comes to be directly above you, the angle steepens, making your shadow shorter and shifting it behind you.", icon: "arrow-right" },
+                { id: 'q3_2', text: "What three things are absolutely necessary to create a shadow?", options: ["Sun, an object, and dirt.", "A light source, an opaque/translucent object, and a surface.", "A flashlight, a mirror, and a wall.", "Eyes, light, and darkness."], correct: 1, hint: "You need something to block the path.", explanation: "To form a shadow, you require a light source, an opaque object to block that light, and a physical surface for the shadow to fall on.", icon: "box" },
+                { id: 'q3_3', text: "If you want to make a hand shadow puppet look massive on the wall, what should you do?", options: ["Move your hand closer to the wall.", "Move your hand closer to the flashlight.", "Use a smaller flashlight.", "Move both your hand and flashlight away from the wall."], correct: 1, hint: "Blocking more of the light beam makes a bigger dark spot.", explanation: "Moving your hand closer to the light source blocks a larger portion of the expanding light beam, creating a bigger shadow on the wall.", icon: "hand" },
+                { id: 'q3_4', text: "At what time of day is your shadow outside the shortest?", options: ["Early morning", "Late afternoon", "Exactly at Noon (midday)", "Midnight"], correct: 2, hint: "When is the sun highest in the sky?", explanation: "At noon, the sun is at its highest point in the sky, casting light almost straight down and creating the shortest possible shadows.", icon: "clock" },
+                { id: 'q3_5', text: "If an object is perfectly round (a sphere), will its shadow always be a perfect circle?", options: ["Yes, always.", "No, it depends on the angle of the light and the surface it falls on.", "Only if the light is directly above it.", "Spheres do not cast shadows."], correct: 1, hint: "Imagine a ball lit from the side casting a shadow on a slanted roof.", explanation: "The shape of a shadow can distort into an oval (ellipse) depending on the angle of the light or if the surface it falls on is slanted.", icon: "circle-dot" },
+                { id: 'q3_6', text: "Why is a shadow never perfectly black, but usually dark grey?", options: ["Light leaks through the object.", "Other light sources (like light bouncing off walls/sky) fill in the dark area slightly.", "Our eyes play tricks on us.", "Shadows are naturally grey."], correct: 1, hint: "Is there ever only ONE ray of light in a room?", explanation: "Ambient light from the sky, reflecting off walls, and scattering in the air partially illuminates the shadowed area, preventing it from being pure black.", icon: "activity" },
+                { id: 'q3_7', text: "The dark, sharp inner part of a shadow is called the...", options: ["Penumbra", "Umbra", "Eclipse", "Silhouette"], correct: 1, hint: "Starts with 'U'.", explanation: "The umbra is the darkest, innermost part of a shadow where the light source is completely blocked by the object.", icon: "focus" },
+                { id: 'q3_8', text: "The lighter, fuzzy outer edge of a shadow is called the...", options: ["Penumbra", "Umbra", "Halo", "Glow"], correct: 0, hint: "Starts with 'P'.", explanation: "The penumbra is the lighter, blurry outer region of a shadow where the light is only partially blocked.", icon: "cloud-rain" },
+                { id: 'q3_9', text: "If you hold a red ball in front of a white light, what color is its shadow?", options: ["Red", "White", "Dark grey/Black", "Blue"], correct: 2, hint: "A shadow is the ABSENCE of light, not a color.", explanation: "A shadow is simply an area where light is blocked. It has no intrinsic color of its own and will appear dark grey or black.", icon: "circle" },
+                { id: 'q3_10', text: "How does a sundial tell time?", options: ["By using a clock mechanism inside.", "By measuring the heat of the sun.", "By tracking the changing position and length of a shadow as the Earth rotates.", "By counting clouds."], correct: 2, hint: "Ancient clocks used shadows.", explanation: "As the Earth rotates, the sun's position changes in the sky, moving a cast shadow across the sundial's markings to indicate time.", icon: "compass" },
+                { id: 'q3_11', text: "If you have two light sources shining on an object from different angles, how many shadows will it have?", options: ["One very dark one.", "Two separate shadows.", "No shadows.", "It will glow."], correct: 1, hint: "Each light casts its own shadow.", explanation: "Each distinct light source will cast its own independent shadow of the object, resulting in multiple shadows.", icon: "zap" },
+                { id: 'q3_12', text: "Why do airplanes flying high in the sky rarely cast a visible shadow on the ground?", options: ["Planes are transparent.", "They fly faster than light.", "The shadow becomes too blurry and scattered to see from that distance (penumbra effect).", "The sun is too bright up there."], correct: 2, hint: "The farther away, the softer the shadow gets until it fades.", explanation: "Due to the vast distance from the ground, the sunlight scatters around the plane, causing the shadow to blur entirely before reaching the surface.", icon: "plane" },
+                { id: 'q3_13', text: "If you trace your shadow on the ground at 9 AM, and stand in the exact same spot at 3 PM, what will be different?", options: ["The shadow will be the same.", "The shadow will be pointing in a different direction.", "The shadow will be a different color.", "You will not have a shadow at 3 PM."], correct: 1, hint: "The sun moves across the sky.", explanation: "Because the Earth rotates, the sun's position in the sky changes throughout the day, which dramatically alters the direction your shadow points.", icon: "arrow-right-left" },
+                { id: 'q3_14', text: "What happens to a shadow's size when you move the surface (screen) further away from the object?", options: ["It gets smaller and sharper.", "It gets larger and blurrier.", "It stays exactly the same.", "It disappears instantly."], correct: 1, hint: "The light beam is spreading outwards.", explanation: "As the screen moves further away, the blocked light rays have more distance to spread out, making the shadow larger and its edges blurrier.", icon: "expand" },
+                { id: 'q3_15', text: "Can a transparent object cast a shadow?", options: ["No, never.", "Yes, a very faint one, because it might reflect or absorb a tiny bit of light, or have dirt on it.", "Yes, a pitch black one.", "Only underwater."], correct: 1, hint: "Is any glass 100% perfectly clear?", explanation: "Even highly transparent objects reflect or absorb a tiny fraction of light, and edge distortion can cast very faint, noticeable shadows.", icon: "search" },
+                { id: 'q3_16', text: "Which shape of object will ALWAYS cast a rectangular shadow, no matter how you rotate it?", options: ["A cube", "A cylinder", "A sphere", "None of these"], correct: 3, hint: "Think about rotating a cube or cylinder.", explanation: "Every 3D shape changes its shadow outline depending on its orientation relative to the light source. None will always cast a rectangle.", icon: "rectangle-horizontal" },
+                { id: 'q3_17', text: "To make a shadow appear sharp with crisp edges, you need...", options: ["A very large, diffuse light source.", "A very small, point-like light source.", "A colored light source.", "A very distant screen."], correct: 1, hint: "A tiny bulb vs a large frosted lamp.", explanation: "A small, point-like light source minimizes the penumbra (the blurry edge effect), creating a very sharp and crisp umbra shadow.", icon: "target" },
+                { id: 'q3_18', text: "During a stage play, an actor has three shadows behind them. Why?", options: ["They are moving very fast.", "There are three spotlights shining on them from different places.", "It's an optical illusion.", "The stage is made of mirrors."], correct: 1, hint: "Count the lights.", explanation: "Shadows are created per light source. If an actor has three shadows, it is because three separate spotlights are shining on them.", icon: "monitor-up" },
+                { id: 'q3_19', text: "If you place an object right against a wall and shine a light on it, the shadow will be...", options: ["Huge and blurry.", "Exactly the same size as the object and very sharp.", "Invisible.", "Upside down."], correct: 1, hint: "There is no room for the light to spread.", explanation: "When an object is flush against a wall, there is no distance for the light to spread out, resulting in a perfectly sharp, true-to-size shadow.", icon: "maximize" },
+                { id: 'q3_20', text: "Shadows are evidence that light travels...", options: ["In waves.", "Through water.", "In straight lines.", "Very slowly."], correct: 2, hint: "If it curved, it would bend around the object.", explanation: "If light traveled in curves, it would easily bend around opaque objects and fill in the dark space. Shadows prove it travels in straight lines.", icon: "zap" }
+            ],
+            eclipse: [
+                { id: 'q4_1', text: "During a solar eclipse, what is actually blocking the sun's light from reaching Earth?", options: ["Thick clouds", "The Earth itself", "The Moon", "Another planet"], correct: 2, hint: "What celestial body passes between Earth and the Sun?", explanation: "During a solar eclipse, the Moon orbits exactly between the Earth and the Sun, physically blocking the Sun's light from reaching our planet.", icon: "moon" },
+                { id: 'q4_2', text: "If you are standing in the 'umbra' during a solar eclipse, what do you see?", options: ["A normal, bright sun.", "A partial eclipse (crescent sun).", "A total eclipse (the sun is completely covered).", "A red moon."], correct: 2, hint: "Umbra is the darkest part of the shadow.", explanation: "The umbra is the path of totality. If you stand in it, the Moon completely covers the Sun, allowing you to witness a total solar eclipse.", icon: "eye-off" },
+                { id: 'q4_3', text: "During a lunar eclipse, the Moon looks red or orange. Why?", options: ["The Moon catches fire.", "Earth's atmosphere bends the sun's red light into the shadow, acting like a lens.", "Aliens change the Moon's color.", "The sun turns red."], correct: 1, hint: "Think about sunsets.", explanation: "Earth's atmosphere acts like a lens, bending longer-wavelength red light from all its sunrises and sunsets into the Earth's shadow, tinting the Moon red.", icon: "flame" },
+                { id: 'q4_4', text: "Why don't we have a solar eclipse every single month?", options: ["The Moon is too fast.", "The Moon's orbit is slightly tilted, so its shadow usually misses Earth.", "The Sun moves out of the way.", "We do, but they happen at night."], correct: 1, hint: "The orbits don't align perfectly flat every time.", explanation: "The Moon's orbit is tilted about 5 degrees relative to Earth's orbit, so it usually passes slightly above or below the Sun, missing an exact alignment.", icon: "globe" },
+                { id: 'q4_5', text: "Which is safe to look at directly without special glasses?", options: ["A total solar eclipse (only the totality phase).", "A partial solar eclipse.", "A lunar eclipse.", "Both A and C are correct."], correct: 3, hint: "Looking at the sun is bad. Looking at the moon is fine.", explanation: "Total solar eclipses (only during the 100% totality phase) and lunar eclipses are completely safe to view directly. Partial solar eclipses are never safe.", icon: "glasses" },
+                { id: 'q4_6', text: "In what phase must the Moon be for a solar eclipse to happen?", options: ["Full Moon", "New Moon", "First Quarter", "Crescent"], correct: 1, hint: "The side of the moon facing us must be dark.", explanation: "A solar eclipse can only occur during a New Moon, which is the exact phase when the Moon is situated between the Earth and the Sun.", icon: "moon" },
+                { id: 'q4_7', text: "In what phase must the Moon be for a lunar eclipse to happen?", options: ["Full Moon", "New Moon", "Third Quarter", "Gibbous"], correct: 0, hint: "Earth's shadow needs to cover the whole visible face.", explanation: "A lunar eclipse can only happen during a Full Moon, which is when the Earth is situated directly between the Sun and the Moon.", icon: "circle" },
+                { id: 'q4_8', text: "Who experiences a total solar eclipse?", options: ["Everyone on Earth during the day.", "Only people located inside the Moon's small umbra shadow path on Earth.", "Only people in space.", "Everyone on the night side of Earth."], correct: 1, hint: "The Moon's shadow on Earth is relatively small.", explanation: "The Moon is small, so its dark inner shadow (umbra) only covers a very narrow strip on the Earth's surface, limiting who sees totality.", icon: "target" },
+                { id: 'q4_9', text: "A solar eclipse is essentially just a giant...", options: ["Rainbow", "Reflection", "Shadow cast by the Moon onto Earth.", "Explosion on the sun."], correct: 2, hint: "Apply what you know about shadows to space.", explanation: "An eclipse is a massive display of light and shadows in space. A solar eclipse is simply the Moon casting its physical shadow onto the Earth.", icon: "umbrella" },
+                { id: 'q4_10', text: "If the Moon were much farther away from Earth, how would solar eclipses change?", options: ["They would last for days.", "We would never have total eclipses, only 'annular' (ring of fire) eclipses, because the Moon would look too small to cover the Sun.", "They would happen every week.", "They would become brighter."], correct: 1, hint: "Distance affects apparent size.", explanation: "If the Moon were farther away, its apparent size in the sky would be too small to fully block the Sun, leaving a visible 'ring of fire' (annular eclipse).", icon: "expand" },
+                { id: 'q4_11', text: "What blocks the light during a Lunar Eclipse?", options: ["The Moon", "The Sun", "The Earth", "Clouds"], correct: 2, hint: "The moon goes dark. What is casting the shadow?", explanation: "During a lunar eclipse, the Earth places itself exactly between the Sun and the Moon, causing Earth's massive shadow to fall onto the Moon.", icon: "globe" },
+                { id: 'q4_12', text: "The glowing outer atmosphere of the Sun, visible only during a total solar eclipse, is called the...", options: ["Core", "Corona", "Crust", "Mantle"], correct: 1, hint: "It means 'crown'.", explanation: "The corona is the Sun's extremely hot, glowing outer atmosphere, normally hidden by the Sun's brightness but safely visible during totality.", icon: "sun" },
+                { id: 'q4_13', text: "How long does a total solar eclipse usually last in one specific location?", options: ["A few seconds to a few minutes.", "About an hour.", "A whole day.", "A whole month."], correct: 0, hint: "The shadow is moving very fast across the Earth.", explanation: "Because the Earth is rotating and the Moon is orbiting rapidly, the small umbral shadow races across the surface, making totality last only a few minutes.", icon: "timer" },
+                { id: 'q4_14', text: "Can you see a lunar eclipse during the day?", options: ["Yes, easily.", "No, it only happens when the Moon is on the night side of Earth.", "Only if you wear special glasses.", "Only near the equator."], correct: 1, hint: "Earth has to be between the sun and moon.", explanation: "A lunar eclipse occurs when the Moon enters Earth's shadow. This requires you to be on the night-side of the Earth to see the Moon.", icon: "sunrise" },
+                { id: 'q4_15', text: "What is an 'annular' solar eclipse?", options: ["An eclipse that happens annually (every year).", "When the Moon covers the Sun but leaves a bright ring visible around the edge.", "A lunar eclipse.", "An eclipse caused by an asteroid."], correct: 1, hint: "Annular means 'ring-shaped'.", explanation: "An annular eclipse happens when the Moon is slightly farther from Earth and appears too small to completely cover the Sun, leaving a bright 'ring of fire'.", icon: "circle-dot" },
+                { id: 'q4_16', text: "During a solar eclipse, animals might act strangely. Why?", options: ["The gravity changes.", "They think night is falling suddenly because it gets dark and cool.", "They can hear the moon moving.", "They are scared of the sun."], correct: 1, hint: "Animals rely on light to know when to sleep.", explanation: "The sudden, unnatural drop in light and temperature mimics sunset, tricking birds and animals into displaying evening or sleeping behaviors.", icon: "cat" },
+                { id: 'q4_17', text: "If you lived on the Moon, what would you see during a Lunar Eclipse on Earth?", options: ["A giant shadow covering the Sun.", "The Earth becoming totally dark.", "A bright red ring around the Earth (all the sunrises and sunsets at once).", "Nothing unusual."], correct: 2, hint: "You are looking AT Earth blocking the sun.", explanation: "Looking at Earth, you would see it blocking the Sun entirely, illuminated only by a brilliant red ring of all Earth's sunrises and sunsets happening at once.", icon: "telescope" },
+                { id: 'q4_18', text: "Which type of eclipse can be seen by more people at once?", options: ["Solar Eclipse", "Lunar Eclipse", "Both are seen by the same number of people.", "It depends on the season."], correct: 1, hint: "Earth's shadow is much bigger than the Moon's shadow.", explanation: "Earth's shadow is massive and easily covers the entire Moon, meaning anyone on the dark side of Earth can watch a lunar eclipse simultaneously.", icon: "alert-triangle" },
+                { id: 'q4_19', text: "What causes the Moon's shadow to race across the Earth's surface during a solar eclipse?", options: ["The Earth's rotation and the Moon's orbit.", "The Sun moving very fast.", "Wind pushing the shadow.", "The Moon spinning on its axis."], correct: 0, hint: "Everything in space is moving.", explanation: "The combination of the Moon continuously moving in its orbit and the Earth constantly rotating causes the shadow to trace a fast-moving path.", icon: "radio" },
+                { id: 'q4_20', text: "Ancient people were often terrified of solar eclipses because...", options: ["They caused bad weather.", "They thought a monster was eating the sun and didn't understand the science.", "They were too loud.", "They always caused earthquakes."], correct: 1, hint: "Imagine the sun disappearing without warning.", explanation: "Without modern astronomical knowledge, the sudden, unexplained disappearance of the life-giving Sun was terrifying and often blamed on mythical beasts.", icon: "shield-alert" }
+            ]
+        };
+
+        const getTranslatedSections = (lang) => {
+            const titles = {
+                en: ['How do we see things?', 'Transparent, translucent & opaque', 'Formation of shadows', 'Lunar and solar eclipse'],
+                hi: ['हम चीजें कैसे देखते हैं?', 'पारदर्शी, पारभासी और अपारदर्शी', 'छाया का निर्माण', 'चंद्र और सूर्य ग्रहण']
+            };
+            const t = titles[lang] || titles.en;
+            return SECTIONS.map((sec, i) => ({ ...sec, title: t[i] }));
+        };
+
+        const exactTranslations = {
+            hi: {
+                'q1_1': { t: "यदि आप एक पूरी तरह से अंधेरे कमरे में एक चमकदार दर्पण और एक लाल सेब के साथ हैं, तो आप क्या देखेंगे?", o: ["दर्पण, क्योंकि यह चमकदार है।", "सेब, क्योंकि यह लाल है।", "कुछ नहीं, क्योंकि प्रतिबिंबित करने के लिए कोई प्रकाश नहीं है।", "दोनों, लेकिन बहुत धुंधले।"], h: "याद रखें कि प्रतिबिंब के लिए क्या आवश्यक है।", e: "पूरी तरह से अंधेरे में, दर्पण या सेब को प्रतिबिंबित करने के लिए कोई प्रकाश नहीं होता है, जिससे वे दोनों दिखाई नहीं देते हैं।" },
+                'q1_2': { t: "दिन के उजाले में भी, आप कोनों के आसपास क्यों नहीं देख सकते?", o: ["प्रकाश किरणें बहुत धीमी गति से मुड़ती हैं।", "प्रकाश सीधी रेखाओं में यात्रा करता है।", "आपकी आँखें पर्याप्त मजबूत नहीं हैं।", "हवा मुड़ने पर प्रकाश को रोकती है।"], h: "प्रकाश के मार्ग के बारे में सोचें।", e: "प्रकाश सीधी रेखाओं में यात्रा करता है और दीवारों या कोनों जैसी अपारदर्शी बाधाओं के चारों ओर नहीं झुक सकता।" },
+                'q1_3': { t: "इनमें से कौन प्रकाश का स्रोत नहीं है, बल्कि केवल इसे प्रतिबिंबित करता है?", o: ["एक जुगनू", "सूर्य", "एक टेलीविजन स्क्रीन", "चंद्रमा"], h: "कौन सा अपनी ऊर्जा नहीं बनाता है?", e: "चंद्रमा अपना प्रकाश स्वयं उत्पन्न नहीं करता है; यह केवल सूर्य से आने वाले प्रकाश को प्रतिबिंबित करता है।" },
+                'q1_4': { t: "पेरिस्कोप पनडुब्बी चालक दल को पानी के ऊपर देखने में कैसे मदद करता है?", o: ["यह लेंस का उपयोग करके प्रकाश को मोड़ता है।", "यह कोणों पर रखे दो दर्पणों से प्रकाश को उछालता है।", "यह कैमरे और स्क्रीन का उपयोग करता है।", "यह पानी को पारदर्शी बनाता है।"], h: "सोचें कि प्रतिबिंब दिशा कैसे बदल सकता है।", e: "पेरिस्कोप 45-डिग्री के कोण पर सेट किए गए दो दर्पणों का उपयोग करता है ताकि प्रकाश को एक ट्यूब के नीचे उछाला जा सके, जिससे आप ऊपर की वस्तुओं को देख सकें।" },
+                'q1_5': { t: "यदि आप विशुद्ध रूप से लाल बत्ती के नीचे नीली शर्ट देखते हैं, तो यह किस रंग की दिखाई देगी?", o: ["नीला", "लाल", "बैंगनी", "काला"], h: "नीली शर्ट लाल बत्ती को अवशोषित करती है। क्या वापस उछलता है?", e: "नीली शर्ट नीले रंग को छोड़कर सभी रंगों को अवशोषित करती है। चूंकि लाल प्रकाश किरण में कोई नीला प्रकाश नहीं होता है, इसलिए यह कुछ भी प्रतिबिंबित नहीं करता है और काला दिखाई देता है।" },
+                'q1_6': { t: "हम धूल भरे कमरे में लेजर बीम क्यों देखते हैं लेकिन साफ कमरे में नहीं?", o: ["धूल प्रकाश पैदा करती है।", "धूल प्रकाश को हमारी आँखों की ओर प्रतिबिंबित करती है।", "लेजर धूल में अधिक गर्म हो जाता है।", "साफ हवा सभी लेजर प्रकाश को अवशोषित करती है।"], h: "हम प्रकाश तभी देखते हैं जब वह हमारी आँखों में प्रवेश करता है।", e: "हवा में मौजूद धूल के कण लेजर प्रकाश को बिखेरते हैं, जिससे इसका कुछ हिस्सा हमारी आंखों में चला जाता है।" },
+                'q1_7': { t: "आँख का कौन सा भाग स्क्रीन की तरह काम करता है जहाँ छवि बनती है?", o: ["पुतली (Pupil)", "लेंस", "रेटिना", "आइरिस"], h: "यह आँख के पीछे है।", e: "रेटिना आंख के पीछे प्रकाश के प्रति संवेदनशील परत है जहां छवियां केंद्रित होती हैं, यह एक प्रक्षेपण स्क्रीन (projection screen) की तरह काम करती है।" },
+                'q1_8': { t: "अंधेरे कमरे में पुतलियाँ बड़ी क्यों हो जाती हैं?", o: ["बेहतर ध्यान केंद्रित करने के लिए।", "अधिक प्रकाश अंदर जाने देने के लिए।", "आँख का रंग बदलने के लिए।", "आँख की मांसपेशियों को आराम देने के लिए।"], h: "पुतली को एक खिड़की की तरह सोचें।", e: "बेहतर दृष्टि के लिए आंख में अधिक से अधिक प्रकाश प्रवेश करने की अनुमति देने के लिए अंधेरे में पुतलियां चौड़ी हो जाती हैं।" },
+                'q1_9': { t: "चिकनी, चमकदार सतहें स्पष्ट प्रतिबिंब बनाती हैं क्योंकि वे प्रकाश किरणों को उछालती हैं...", o: ["कई अलग-अलग दिशाओं में।", "वापस उसी समानांतर दिशा में।", "खुरदरी सतहों की तुलना में तेज।", "केवल अगर प्रकाश सफेद है।"], h: "सपाट बनाम ऊबड़-खाबड़ फर्श पर उछलती गेंद के बारे में सोचें।", e: "चिकनी सतहें दर्पण की तरह काम करती हैं, जो आने वाली समानांतर प्रकाश किरणों को ठीक उसी समानांतर दिशा में वापस दर्शाती हैं।" },
+                'q1_10': { t: "हवा से पानी में प्रवेश करने पर प्रकाश का क्या होता है?", o: ["यह गति पकड़ता है और मुड़ता है।", "यह धीमा हो जाता है और मुड़ता है।", "यह पूरी तरह से रुक जाता है।", "यह गर्मी में बदल जाता है।"], h: "पानी हवा से सघन है।", e: "क्योंकि पानी हवा से सघन है, प्रकाश प्रवेश करते ही धीमा हो जाता है, जिससे प्रकाश की किरणें मुड़ जाती हैं (अपवर्तित होती हैं)।" },
+                'q1_11': { t: "कौन सी सतह प्रकाश को सबसे अधिक बिखेरेगी?", o: ["एक शांत झील", "एक पॉलिश की हुई चांदी की चम्मच", "एल्यूमीनियम पन्नी का एक मुड़ा हुआ टुकड़ा", "एक साफ खिड़की"], h: "बिखरने का मतलब है सभी दिशाओं में उछलना।", e: "पन्नी के एक मुड़े हुए टुकड़े में अत्यधिक असमान सतह होती है, जो परावर्तित प्रकाश किरणों को कई अलग-अलग, यादृच्छिक दिशाओं में बिखेरती है।" },
+                'q1_12': { t: "यदि आप आराम से किताब पढ़ना चाहते हैं, तो प्रकाश स्रोत कहाँ होना चाहिए?", o: ["सीधे आपकी आँखों में चमकना।", "किताब के पीछे, आपकी ओर चमकना।", "आपके पीछे, किताब पर चमकना।", "किताब के नीचे।"], h: "आप चाहते हैं कि प्रकाश पृष्ठ से आपकी आँखों तक उछले।", e: "प्रकाश को अपने पीछे सीधे किताब पर चमकाने से यह सुनिश्चित होता है कि प्रकाश बिना चकाचौंध के सीधे आपकी आंखों में पृष्ठ से परावर्तित होता है।" },
+                'q1_13': { t: "पानी के गिलास में रखने पर पेंसिल मुड़ी हुई क्यों दिखती है?", o: ["पानी पेंसिल को मोड़ता है।", "प्रकाश पानी से हवा में जाते समय मुड़ता है।", "ग्लास पेंसिल को बड़ा करता है।", "पानी सीधी प्रकाश किरणों को अवशोषित करता है।"], h: "इसे अपवर्तन (refraction) कहा जाता है।", e: "प्रकाश पानी बनाम हवा में अलग-अलग गति से यात्रा करता है। गति में यह परिवर्तन प्रकाश को मोड़ने (अपवर्तित) का कारण बनता है, जिससे भ्रम पैदा होता है।" },
+                'q1_14': { t: "सूर्य का प्रकाश किस रंग का बना होता है?", o: ["केवल पीला प्रकाश।", "पीला और सफेद प्रकाश।", "इंद्रधनुष के सभी रंग एक साथ।", "कोई रंग नहीं, यह अदृश्य है।"], h: "प्रिज्म या इंद्रधनुष के बारे में सोचें।", e: "सफेद धूप वास्तव में दृश्यमान स्पेक्ट्रम के सभी रंगों का मिश्रण है।" },
+                'q1_15': { t: "हम उज्ज्वल दिन में धूप का चश्मा क्यों पहनते हैं?", o: ["चीजों को गहरा दिखाने के लिए।", "हानिकारक यूवी किरणों को रोकने और चकाचौंध को कम करने के लिए।", "आसमान का रंग बदलने के लिए।", "बाद में अंधेरे में देखने में मदद करने के लिए।"], h: "यह सिर्फ चमक के बारे में नहीं है, बल्कि आंखों की सुरक्षा के बारे में है।", e: "धूप का चश्मा हानिकारक पराबैंगनी (यूवी) किरणों को रोककर और तीव्र रोशनी (चकाचौंध) को कम करके आंखों की रक्षा करता है।" },
+                'q1_16': { t: "यदि कोई वस्तु प्रकाश के सभी रंगों को अवशोषित कर लेती है, तो वह किस रंग की दिखाई देती है?", o: ["सफेद", "काला", "पारदर्शी", "ग्रे"], h: "जब आपकी आंख तक कोई रोशनी नहीं पहुंचती है तो आप क्या देखते हैं?", e: "जब कोई वस्तु सभी दृश्यमान प्रकाश को अवशोषित कर लेती है और किसी को भी आपकी आंखों में वापस नहीं दर्शाती है, तो आपका मस्तिष्क इसे काले रंग के रूप में मानता है।" },
+                'q1_17': { t: "यदि कोई वस्तु प्रकाश के सभी रंगों को समान रूप से प्रतिबिंबित करती है, तो वह किस रंग की दिखाई देती है?", o: ["सफेद", "काला", "एक इंद्रधनुष", "अदृश्य"], h: "प्रकाश के सभी रंगों को मिलाएं।", e: "जब कोई वस्तु दृश्यमान स्पेक्ट्रम के सभी तरंग दैर्ध्य को समान रूप से दर्शाती है, तो संयुक्त प्रकाश हमारी आंखों में प्रवेश करता है और हम सफेद देखते हैं।" },
+                'q1_18': { t: "'आईशाइन' वाले जानवर (जैसे बिल्लियां) रात में बेहतर कैसे देखते हैं?", o: ["उनकी आँखें प्रकाश पैदा करती हैं।", "उनके पास एक दर्पण जैसी परत होती है जो रेटिना के माध्यम से प्रकाश को वापस उछालती है।", "उनकी पुतलियां कभी बंद नहीं होती हैं।", "वे प्रकाश के बजाय इकोलोकेशन का उपयोग करते हैं।"], h: "यह उनकी आँखों को प्रकाश पकड़ने का दूसरा मौका देता है।", e: "उनके पास रेटिना के पीछे एक परावर्तक परत होती है जो प्रकाश को आंख के माध्यम से वापस उछालती है, जिससे वे प्रकाश का दोगुना पता लगा सकते हैं।" },
+                'q1_19': { t: "सीधे सूर्य को देखना खतरनाक क्यों है?", o: ["यह आपको छींकने पर मजबूर करेगा।", "तीव्र प्रकाश और यूवी किरणें रेटिना को नुकसान पहुंचा सकती हैं।", "यह अस्थायी अंधापन का कारण बनता है जो कभी दूर नहीं होता है।", "सूर्य का गुरुत्वाकर्षण आपकी आँखों को खींचता है।"], h: "पत्ती पर आवर्धक कांच के उपयोग के बारे में सोचें।", e: "सूर्य तीव्र दृश्यमान प्रकाश और यूवी विकिरण का उत्सर्जन करता है जिसे आपकी आंख का लेंस सीधे रेटिना पर केंद्रित करता है, जो स्थायी जलन पैदा कर सकता है।" },
+                'q1_20': { t: "जब आप दर्पण देखते हैं, तो आपका बायां हाथ प्रतिबिंब के रूप में दिखाई देता है...", o: ["बायां हाथ", "दाहिना हाथ", "ऊपरी हाथ", "यह गायब हो जाता है"], h: "दर्पण चीजों को पार्श्व रूप से (laterally) पलटते हैं।", e: "दर्पण एक पार्श्व व्युत्क्रम (lateral inversion) बनाते हैं, जिसका अर्थ है कि प्रतिबिंब में बाएँ और दाएँ पूरी तरह से बदल जाते हैं।" },
+                'q2_1': { t: "बाथरूम में अक्सर स्पष्ट कांच के बजाय पाले सेओढ़ लिया (frosted) कांच की खिड़कियां क्यों होती हैं?", o: ["फ्रॉस्टेड ग्लास अधिक मजबूत होता है।", "यह प्रकाश को अंदर आने देता है लेकिन लोगों को विवरण देखने से रोकता है।", "यह सभी प्रकाश को पूरी तरह से अवरुद्ध करता है।", "यह सूर्य के प्रकाश का रंग बदलता है।"], h: "गोपनीयता बनाम प्रकाश की आवश्यकता के बारे में सोचें।", e: "फ्रॉस्टेड ग्लास पारभासी है। यह प्रकाश को बिखेरता है इसलिए कमरा उज्ज्वल रहता है, लेकिन गोपनीयता सुनिश्चित करते हुए स्पष्ट आकृतियों को देखने से रोकता है।" },
+                'q2_2': { t: "यदि आप पौधे उगाने के लिए ग्रीनहाउस बनाना चाहते हैं, तो छत किस सामग्री की होनी चाहिए?", o: ["लकड़ी", "गत्ता", "साफ़ प्लास्टिक या कांच", "फ्रॉस्टेड ग्लास"], h: "पौधों को अधिकतम सीधी धूप की आवश्यकता होती है।", e: "पौधों को प्रकाश संश्लेषण के लिए अधिकतम धूप की आवश्यकता होती है, इसलिए छत एक स्पष्ट, पारदर्शी सामग्री से बनी होनी चाहिए।" },
+                'q2_3': { t: "इनमें से कौन सी एक अपारदर्शी (opaque) वस्तु है?", o: ["एक साफ स्विमिंग पूल", "टिशू पेपर का एक टुकड़ा", "लकड़ी का दरवाजा", "एक आवर्धक कांच"], h: "कौन सा प्रकाश को पूरी तरह से रोकता है?", e: "लकड़ी का दरवाजा पूरी तरह से अपारदर्शी है, जिसका अर्थ है कि यह सभी प्रकाश को अवशोषित या प्रतिबिंबित करता है और किसी को भी गुजरने नहीं देता है।" },
+                'q2_4': { t: "आप कंबल के नीचे टॉर्च के साथ एक गुप्त नक्शा पढ़ रहे हैं। कंबल की सबसे अधिक संभावना है...", o: ["पारदर्शी", "पारभासी", "अपारदर्शी", "चमकीला"], h: "क्या कंबल के बाहर कोई व्यक्ति नक्शे को स्पष्ट रूप से देख सकता है?", e: "यदि आप इसके नीचे छिप रहे हैं, तो कंबल प्रकाश को बाहर निकलने से रोक रहा होगा, जिसका अर्थ है कि यह एक अपारदर्शी बाधा के रूप में कार्य करता है।" },
+                'q2_5': { t: "गहरे समुद्र का पानी पूरी तरह से काला है। यह आपको पानी की मोटी परतों के बारे में क्या बताता है?", o: ["पानी बहुत गहरा होने पर अपारदर्शी हो जाता है।", "पानी हमेशा अपारदर्शी होता है।", "पानी अंधेरे में चमकता है।", "गहरे पानी में प्रकाश तेजी से यात्रा करता है।"], h: "यहां तक ​​कि साफ चीजें भी प्रकाश को रोक सकती हैं यदि वे पर्याप्त मात्रा में हों।", e: "पानी जैसे पारदर्शी पदार्थ भी प्रकाश की एक छोटी मात्रा को अवशोषित करते हैं। बड़ी गहराई पर, यह अंततः सभी प्रकाश को अवशोषित कर लेता है, जिससे गहरा समुद्र अपारदर्शी हो जाता है।" },
+                'q2_6': { t: "मोम के कागज (Wax paper) को सबसे अच्छी तरह से वर्णित किया गया है...", o: ["पारदर्शी", "पारभासी", "अपारदर्शी", "परावर्तक"], h: "क्या आप इसके माध्यम से एक किताब स्पष्ट रूप से पढ़ सकते हैं?", e: "मोम का कागज पारभासी होता है। यह कुछ प्रकाश को गुजरने देता है लेकिन इसे बिखेर देता है, जिससे दूसरी तरफ की वस्तुएं धुंधली दिखती हैं।" },
+                'q2_7': { t: "कार की विंडशील्ड पारदर्शी सामग्री से क्यों बनी होती है?", o: ["ताकि कार अच्छी दिखे।", "हवा को रोकने के लिए।", "ताकि ड्राइवर सड़क को पूरी तरह से स्पष्ट रूप से देख सके।", "कार को गर्म रखने के लिए।"], h: "सुरक्षा के लिए स्पष्ट दृष्टि की आवश्यकता होती है।", e: "विंडशील्ड पूरी तरह से पारदर्शी होनी चाहिए ताकि ड्राइवर को सुरक्षा के लिए सड़क का स्पष्ट, अविकृत दृश्य मिल सके।" },
+                'q2_8': { t: "कौन सी सामग्री सबसे गहरी, सबसे तेज छाया डालती है?", o: ["एक साफ कांच का कप", "ट्रेसिंग पेपर की एक शीट", "एक मोटी ईंट", "प्लास्टिक की पानी की बोतल"], h: "गहरी छाया के लिए प्रकाश को पूरी तरह से अवरुद्ध करने की आवश्यकता होती है।", e: "एक मोटी ईंट पूरी तरह से अपारदर्शी होती है और सभी प्रकाश को अवरुद्ध करती है, जिससे एक अत्यधिक गहरी और तेज छाया बनती है।" },
+                'q2_9': { t: "धूप के चश्मे के लेंस आमतौर पर होते हैं...", o: ["पारदर्शी", "पारभासी", "अपारदर्शी", "दोनों तरफ प्रतिबिंबित"], h: "वे कुछ प्रकाश को गुजरने देते हैं, लेकिन सभी को नहीं।", e: "धूप का चश्मा पारभासी होता है; वे कुछ प्रकाश को गुजरने देते हैं ताकि आप देख सकें, लेकिन चकाचौंध को कम करने के लिए बाकी को अवशोषित कर लें।" },
+                'q2_10': { t: "यदि आप एक साफ कांच के जार को काले पेंट से रंगते हैं, तो यह बदल जाता है...", o: ["पारदर्शी से पारभासी।", "अपारदर्शी से पारदर्शी।", "पारदर्शी से अपारदर्शी।", "पारभासी से अपारदर्शी।"], h: "पेंट प्रकाश को रोकता है।", e: "काला रंग प्रकाश को सोख लेता है। इसे स्पष्ट, पारदर्शी कांच पर लगाने से प्रकाश को गुजरने से रोक दिया जाता है, जिससे कांच अपारदर्शी हो जाता है।" },
+                'q2_11': { t: "हम नंगे बल्बों के बजाय लैंपशेड का उपयोग क्यों करते हैं?", o: ["प्रकाश को तेज करने के लिए।", "प्रकाश स्रोत को पारभासी बनाने के लिए, इसे धीरे से फैलाना और चकाचौंध को कम करना।", "प्रकाश को अपारदर्शी बनाने के लिए।", "बिजली बचाने के लिए।"], h: "नंगे बल्ब को घूरने से दर्द होता है।", e: "बल्ब के कठोर प्रकाश को बिखेरने के लिए लैंपशेड एक पारभासी बाधा के रूप में कार्य करते हैं, जिससे एक नरम, अधिक आरामदायक कमरे की रोशनी बनती है।" },
+                'q2_12': { t: "धुंधले दिन में एक बादल किस तरह काम करता है?", o: ["पारदर्शी परत", "पारभासी परत", "अपारदर्शी ठोस", "दर्पण"], h: "बाहर उज्ज्वल है, लेकिन आप सूरज को स्पष्ट रूप से नहीं देख सकते हैं।", e: "बादल सूरज की रोशनी बिखेरते हैं। वे सामान्य चमक को गुजरने देते हैं लेकिन सूर्य के स्पष्ट आकार को अस्पष्ट करते हैं, एक पारभासी परत के रूप में कार्य करते हैं।" },
+                'q2_13': { t: "इनमें से कौन सी वस्तु धूप वाले दिन में ध्यान देने योग्य छाया नहीं डालेगी?", o: ["एक पेड़", "कांच का एक साफ फलक", "एक व्यक्ति", "एक खड़ी कार"], h: "छाया के लिए अवरुद्ध प्रकाश की आवश्यकता होती है।", e: "कांच का एक पूरी तरह से साफ फलक पारदर्शी होता है और लगभग सभी प्रकाश को सीधे गुजरने देता है, इसलिए यह वस्तुतः कोई छाया नहीं डालता है।" },
+                'q2_14': { t: "चर्चों में सना हुआ ग्लास (Stained glass) खिड़कियां सुंदर हैं क्योंकि वे हैं...", o: ["अपारदर्शी और प्रकाश को रोकती हैं।", "पारदर्शी और अदृश्य।", "पारभासी और गुजरने वाले प्रकाश को रंग देती हैं।", "दर्पण की तरह परावर्तक।"], h: "वे इमारत में रंगीन प्रकाश प्रवेश करने देते हैं।", e: "सना हुआ ग्लास पारभासी है; यह प्रकाश को गुजरने की अनुमति देता है लेकिन अंदर विशिष्ट जीवंत रंगों को प्रदर्शित करने के लिए इसे फ़िल्टर करता है।" },
+                'q2_15': { t: "प्रकाश का क्या होता है जब यह एक अपारदर्शी वस्तु से टकराता है?", o: ["यह ठीक से गुजरता है।", "यह मुड़ता है और जारी रहता है।", "यह अवशोषित या परावर्तित होता है, लेकिन कोई भी पार नहीं होता है।", "यह ध्वनि में बदल जाता है।"], h: "यह आगे बढ़ना बंद कर देता है।", e: "अपारदर्शी वस्तुएं प्रकाश संचारित नहीं करती हैं। वे या तो प्रकाश ऊर्जा को अवशोषित करते हैं या इसे वापस पर्यावरण में दर्शाते हैं।" },
+                'q2_16': { t: "यदि आप एक उज्ज्वल खिड़की तक सादे प्रिंटर पेपर का एक टुकड़ा रखते हैं, तो यह है...", o: ["पारदर्शी", "पारभासी", "अपारदर्शी", "चमकीला"], h: "आप प्रकाश देख सकते हैं, लेकिन बाहर स्पष्ट आकार नहीं।", e: "सादा कागज प्रकाश की एक विस्तृत चमक को गुजरने की अनुमति देता है, लेकिन आप इसके माध्यम से स्पष्ट चित्र नहीं देख सकते हैं, जिससे यह पारभासी हो जाता है।" },
+                'q2_17': { t: "एल्यूमीनियम पन्नी है...", o: ["पारदर्शी", "पारभासी", "अपारदर्शी", "केवल अंधेरे में अपारदर्शी"], h: "क्या आप इसके माध्यम से बिल्कुल भी देख सकते हैं?", e: "एल्यूमीनियम पन्नी सभी प्रकाश को दर्शाती है और रोकती है, जिसका अर्थ है कि आप इसके माध्यम से बिल्कुल नहीं देख सकते हैं। इसलिए, यह अपारदर्शी है।" },
+                'q2_18': { t: "मापने वाले कप अक्सर स्पष्ट प्लास्टिक या कांच के क्यों बने होते हैं?", o: ["उन्हें बनाना सस्ता है।", "ताकि आप पारदर्शी रूप से देख सकें कि अंदर कितना तरल है।", "ताकि वे दिलचस्प छाया डालें।", "तरल पदार्थों को ठंडा रखने के लिए।"], h: "कार्य सामग्री को निर्धारित करता है।", e: "पारदर्शी सामग्री आपको बिना किसी रुकावट के अंदर तरल के सटीक स्तर और सामग्री को देखने की अनुमति देती है।" },
+                'q2_19': { t: "क्या कोई वस्तु पारदर्शी और परावर्तक दोनों हो सकती है?", o: ["नहीं, यह असंभव है।", "हाँ, रात में एक जगमगाते कमरे के अंदर को दर्शाती एक साफ कांच की खिड़की की तरह।", "केवल अगर यह पानी से बना है।", "केवल अगर यह अपारदर्शी है।"], h: "क्या आपने कभी खिड़की में अपना प्रतिबिंब देखा है?", e: "हाँ। ग्लास अधिकांश प्रकाश (पारदर्शी) को प्रसारित करता है, लेकिन एक छोटी मात्रा को भी दर्शाता है, यही कारण है कि खिड़कियां रात में प्रतिबिंब दिखाती हैं।" },
+                'q2_20': { t: "एक सामग्री जो बिल्कुल भी प्रकाश को गुजरने नहीं देती है...", o: ["पारभासी", "पारदर्शी", "अपारदर्शी", "अपवर्तक"], h: "ईंट की दीवार के बारे में सोचें।", e: "परिभाषा के अनुसार, एक अपारदर्शी सामग्री सभी प्रकाश किरणों को इसके माध्यम से गुजरने से पूरी तरह से रोक देती है।" },
+                'q3_1': { t: "यदि आप रात में स्ट्रीट लैंप की ओर चलते हैं, तो आपकी छाया का क्या होता है?", o: ["यह छोटा हो जाता है और आपके पीछे चला जाता है।", "यह लंबा हो जाता है और आपके सामने चला जाता है।", "यह पूरी तरह से गायब हो जाता है।", "यह बिल्कुल उसी आकार का रहता है।"], h: "ऊपर से आप पर पड़ने वाले प्रकाश के कोण के बारे में सोचें।", e: "जैसे-जैसे प्रकाश स्रोत सीधे आपके ऊपर आता है, कोण तेज हो जाता है, जिससे आपकी छाया छोटी हो जाती है और यह आपके पीछे खिसक जाती है।" },
+                'q3_2': { t: "छाया बनाने के लिए किन तीन चीजों की बिल्कुल आवश्यकता होती है?", o: ["सूर्य, एक वस्तु, और मिट्टी।", "एक प्रकाश स्रोत, एक अपारदर्शी/पारभासी वस्तु, और एक सतह।", "एक टॉर्च, एक दर्पण, और एक दीवार।", "आँखें, प्रकाश और अंधेरा।"], h: "आपको रास्ता रोकने के लिए कुछ चाहिए।", e: "छाया बनाने के लिए, आपको एक प्रकाश स्रोत, उस प्रकाश को अवरुद्ध करने के लिए एक अपारदर्शी वस्तु और छाया के गिरने के लिए एक भौतिक सतह की आवश्यकता होती है।" },
+                'q3_3': { t: "यदि आप दीवार पर हाथ की छाया कठपुतली को विशाल दिखाना चाहते हैं, तो आपको क्या करना चाहिए?", o: ["अपने हाथ को दीवार के करीब ले जाएं।", "अपने हाथ को टॉर्च के करीब ले जाएं।", "एक छोटी टॉर्च का उपयोग करें।", "अपने हाथ और टॉर्च दोनों को दीवार से दूर ले जाएं।"], h: "प्रकाश किरण को अधिक अवरुद्ध करने से एक बड़ा काला धब्बा बनता है।", e: "अपने हाथ को प्रकाश स्रोत के करीब ले जाने से प्रकाश किरण का एक बड़ा हिस्सा अवरुद्ध हो जाता है, जिससे दीवार पर एक बड़ी छाया बनती है।" },
+                'q3_4': { t: "दिन के किस समय बाहर आपकी छाया सबसे छोटी होती है?", o: ["सुबह जल्दी", "देर दोपहर", "ठीक दोपहर (मध्याह्न)", "आधी रात"], h: "आसमान में सूरज सबसे ऊंचा कब होता है?", e: "दोपहर के समय, सूर्य आकाश में अपने उच्चतम बिंदु पर होता है, जो लगभग सीधे नीचे प्रकाश डालता है और सबसे छोटी संभव छाया बनाता है।" },
+                'q3_5': { t: "यदि कोई वस्तु पूरी तरह से गोल (एक गोला) है, तो क्या उसकी छाया हमेशा एक पूर्ण वृत्त होगी?", o: ["हाँ हमेशा।", "नहीं, यह प्रकाश के कोण और जिस सतह पर पड़ता है उस पर निर्भर करता है।", "केवल अगर प्रकाश सीधे उसके ऊपर है।", "गोले छाया नहीं डालते हैं।"], h: "एक तिरछी छत पर छाया डालने वाले किनारे से प्रकाशित एक गेंद की कल्पना करें।", e: "छाया का आकार एक अंडाकार (दीर्घवृत्त) में विकृत हो सकता है यदि प्रकाश एक कोण पर टकराता है या यदि वह सतह तिरछी है जिस पर वह गिरता है।" },
+                'q3_6': { t: "एक छाया कभी भी पूरी तरह से काली क्यों नहीं होती है, बल्कि आमतौर पर गहरे भूरे रंग की होती है?", o: ["वस्तु के माध्यम से प्रकाश लीक होता है।", "अन्य प्रकाश स्रोत अंधेरे क्षेत्र को थोड़ा भर देते हैं।", "हमारी आँखें हम पर चालें चलती हैं।", "छाया स्वाभाविक रूप से ग्रे होती है।"], h: "क्या कमरे में कभी प्रकाश की केवल एक किरण होती है?", e: "आकाश से परिवेशी प्रकाश (Ambient light), जो हवा में बिखरता है, छायांकित क्षेत्र को आंशिक रूप से रोशन करता है, इसे शुद्ध काला होने से रोकता है।" },
+                'q3_7': { t: "छाया का गहरा, तेज आंतरिक भाग कहलाता है...", o: ["पेनम्ब्रा (Penumbra)", "अम्ब्रा (Umbra)", "ग्रहण", "सिल्हूट"], h: "यह 'U' से शुरू होता है।", e: "अम्ब्रा एक छाया का सबसे गहरा, अंतरतम भाग है जहाँ प्रकाश स्रोत वस्तु द्वारा पूरी तरह से अवरुद्ध होता है।" },
+                'q3_8': { t: "छाया का हल्का, धुंधला बाहरी किनारा कहलाता है...", o: ["पेनम्ब्रा (Penumbra)", "अम्ब्रा (Umbra)", "प्रभामंडल", "चमक"], h: "यह 'P' से शुरू होता है।", e: "पेनम्ब्रा एक छाया का हल्का, धुंधला बाहरी क्षेत्र है जहाँ प्रकाश केवल आंशिक रूप से अवरुद्ध होता है।" },
+                'q3_9': { t: "यदि आप सफेद रोशनी के सामने लाल गेंद पकड़ते हैं, तो उसकी छाया किस रंग की होती है?", o: ["लाल", "सफेद", "गहरा भूरा/काला", "नीला"], h: "छाया प्रकाश की अनुपस्थिति है, रंग नहीं।", e: "छाया केवल एक ऐसा क्षेत्र है जहाँ प्रकाश अवरुद्ध होता है। इसका अपना कोई रंग नहीं है और यह गहरा भूरा या काला दिखाई देगा।" },
+                'q3_10': { t: "धूपघड़ी (sundial) समय कैसे बताती है?", o: ["अंदर एक घड़ी तंत्र का उपयोग करके।", "सूर्य की गर्मी को मापकर।", "पृथ्वी के घूमने पर छाया की बदलती स्थिति और लंबाई को ट्रैक करके।", "बादलों की गिनती करके।"], h: "प्राचीन घड़ियाँ छाया का उपयोग करती थीं।", e: "जैसे-जैसे पृथ्वी घूमती है, आकाश में सूर्य की स्थिति बदलती है, जो समय को इंगित करने के लिए धूपघड़ी के निशान के पार एक डाली गई छाया को ले जाती है।" },
+                'q3_11': { t: "यदि आपके पास अलग-अलग कोणों से किसी वस्तु पर चमकने वाले दो प्रकाश स्रोत हैं, तो उसकी कितनी छाया होगी?", o: ["एक बहुत गहरा।", "दो अलग छाया।", "कोई छाया नहीं।", "यह चमकेगा।"], h: "प्रत्येक प्रकाश अपनी छाया डालता है।", e: "प्रत्येक अलग प्रकाश स्रोत वस्तु की अपनी स्वतंत्र छाया डालेगा, जिसके परिणामस्वरूप कई छायाएं होंगी।" },
+                'q3_12': { t: "आसमान में ऊंची उड़ान भरने वाले हवाई जहाज जमीन पर शायद ही कभी दिखाई देने वाली छाया क्यों डालते हैं?", o: ["विमान पारदर्शी होते हैं।", "वे प्रकाश से तेज उड़ते हैं।", "छाया उस दूरी से देखने के लिए बहुत धुंधली और बिखरी हुई हो जाती है।", "वहाँ सूरज बहुत चमकीला है।"], h: "जितना दूर, छाया उतनी ही नरम होती जाती है।", e: "जमीन से विशाल दूरी के कारण, सूर्य का प्रकाश विमान के चारों ओर बिखर जाता है, जिससे छाया सतह तक पहुंचने से पहले पूरी तरह से धुंधली हो जाती है।" },
+                'q3_13': { t: "यदि आप सुबह 9 बजे जमीन पर अपनी छाया का पता लगाते हैं, और दोपहर 3 बजे ठीक उसी स्थान पर खड़े होते हैं, तो क्या अलग होगा?", o: ["छाया वही रहेगी।", "छाया एक अलग दिशा में इशारा कर रही होगी।", "छाया का रंग अलग होगा।", "दोपहर 3 बजे आपकी छाया नहीं होगी।"], h: "सूरज आकाश में चलता है।", e: "चूंकि पृथ्वी घूमती है, इसलिए आकाश में सूर्य की स्थिति पूरे दिन बदलती रहती है, जो आपकी छाया के बिंदु की दिशा को बदल देती है।" },
+                'q3_14': { t: "जब आप सतह (स्क्रीन) को वस्तु से आगे ले जाते हैं तो छाया के आकार का क्या होता है?", o: ["यह छोटा और तेज हो जाता है।", "यह बड़ा और धुंधला हो जाता है।", "यह बिल्कुल वैसा ही रहता है।", "यह तुरंत गायब हो जाता है।"], h: "प्रकाश किरण बाहर की ओर फैल रही है।", e: "जैसे-जैसे स्क्रीन दूर होती जाती है, अवरुद्ध प्रकाश किरणों को फैलने के लिए अधिक दूरी होती है, जिससे छाया बड़ी हो जाती है और इसके किनारे धुंधले हो जाते हैं।" },
+                'q3_15': { t: "क्या एक पारदर्शी वस्तु छाया डाल सकती है?", o: ["नहीं कभी नहीं।", "हाँ, एक बहुत ही बेहोश छाया, क्योंकि यह प्रकाश का एक छोटा सा हिस्सा परावर्तित या अवशोषित कर सकता है।", "हाँ, एक पिच ब्लैक।", "केवल पानी के भीतर।"], h: "क्या कोई कांच 100% पूरी तरह से साफ है?", e: "यहां तक ​​कि अत्यधिक पारदर्शी वस्तुएं भी प्रकाश के एक छोटे से अंश को दर्शाती हैं या अवशोषित करती हैं, और किनारे की विकृति बहुत बेहोश, ध्यान देने योग्य छाया डाल सकती है।" },
+                'q3_16': { t: "वस्तु का कौन सा आकार हमेशा आयताकार छाया डालेगा, चाहे आप इसे कैसे भी घुमाएं?", o: ["एक घन (cube)", "एक सिलेंडर", "एक गोला", "इनमें से कोई नहीं"], h: "घन या सिलेंडर को घुमाने के बारे में सोचें।", e: "प्रत्येक 3D आकार प्रकाश स्रोत के सापेक्ष इसके अभिविन्यास के आधार पर अपनी छाया रूपरेखा को बदलता है। कोई भी हमेशा एक आयत नहीं डालेगा।" },
+                'q3_17': { t: "कुरकुरा किनारों के साथ छाया को तेज दिखाने के लिए, आपको आवश्यकता है...", o: ["एक बहुत बड़ा प्रकाश स्रोत।", "एक बहुत छोटा, बिंदु जैसा प्रकाश स्रोत।", "एक रंगीन प्रकाश स्रोत।", "एक बहुत दूर की स्क्रीन।"], h: "एक छोटा बल्ब बनाम एक बड़ा दीपक।", e: "एक छोटा, बिंदु जैसा प्रकाश स्रोत पेनम्ब्रा (धुंधला किनारा प्रभाव) को कम करता है, जिससे एक बहुत ही तेज और कुरकुरा गर्भनाल (umbra) छाया बनती है।" },
+                'q3_18': { t: "एक मंच नाटक के दौरान, एक अभिनेता के पीछे तीन छायाएं होती हैं। क्यों?", o: ["वे बहुत तेजी से आगे बढ़ रहे हैं।", "विभिन्न स्थानों से उन पर तीन स्पॉटलाइट चमक रहे हैं।", "यह एक ऑप्टिकल भ्रम है।", "मंच दर्पण से बना है।"], h: "रोशनी गिनें।", e: "प्रति प्रकाश स्रोत छाया बनाई जाती है। यदि किसी अभिनेता की तीन परछाइयाँ हैं, तो इसका कारण यह है कि उन पर तीन अलग-अलग स्पॉटलाइट चमक रही हैं।" },
+                'q3_19': { t: "यदि आप किसी वस्तु को दीवार के ठीक सामने रखते हैं और उस पर प्रकाश डालते हैं, तो छाया होगी...", o: ["विशाल और धुंधला।", "बिल्कुल वस्तु के समान आकार और बहुत तेज।", "अदृश्य।", "उल्टा।"], h: "प्रकाश को फैलने के लिए कोई जगह नहीं है।", e: "जब कोई वस्तु दीवार के विपरीत फ्लश होती है, तो प्रकाश के फैलने के लिए कोई दूरी नहीं होती है, जिसके परिणामस्वरूप पूरी तरह से तेज, वास्तविक आकार की छाया होती है।" },
+                'q3_20': { t: "छाया इस बात का प्रमाण है कि प्रकाश यात्रा करता है...", o: ["लहरों में।", "पानी के माध्यम से।", "सीधी रेखाओं में।", "बहुत धीरे धीरे।"], h: "यदि यह घुमावदार होता, तो यह वस्तु के चारों ओर झुक जाता।", e: "यदि प्रकाश वक्रों में यात्रा करता है, तो यह आसानी से अपारदर्शी वस्तुओं के चारों ओर झुक जाएगा और अंधेरे स्थान को भर देगा। छाया साबित करती है कि यह सीधी रेखाओं में यात्रा करती है।" },
+                'q4_1': { t: "सूर्य ग्रहण के दौरान, वास्तव में सूर्य के प्रकाश को पृथ्वी तक पहुँचने से कौन रोकता है?", o: ["घने बादल", "स्वयं पृथ्वी", "चांद", "एक और ग्रह"], h: "पृथ्वी और सूर्य के बीच कौन सा खगोलीय पिंड गुजरता है?", e: "सूर्य ग्रहण के दौरान, चंद्रमा पृथ्वी और सूर्य के बीच परिक्रमा करता है, जिससे सूर्य का प्रकाश हमारे ग्रह तक पहुंचने से भौतिक रूप से अवरुद्ध हो जाता है।" },
+                'q4_2': { t: "यदि आप सूर्य ग्रहण के दौरान 'अम्ब्रा' में खड़े हैं, तो आप क्या देखते हैं?", o: ["एक सामान्य, उज्ज्वल सूरज।", "आंशिक ग्रहण (अर्धचंद्राकार सूर्य)।", "पूर्ण ग्रहण (सूर्य पूरी तरह से ढका हुआ है)।", "एक लाल चाँद।"], h: "अम्ब्रा (Umbra) छाया का सबसे काला हिस्सा है।", e: "अम्ब्रा समग्रता का मार्ग है। यदि आप इसमें खड़े होते हैं, तो चंद्रमा सूर्य को पूरी तरह से कवर करता है, जिससे आप पूर्ण सूर्य ग्रहण देख सकते हैं।" },
+                'q4_3': { t: "चंद्र ग्रहण के दौरान चंद्रमा लाल या नारंगी रंग का दिखाई देता है। क्यों?", o: ["चाँद में आग लग जाती है।", "पृथ्वी का वायुमंडल सूर्य के लाल प्रकाश को छाया में मोड़ता है।", "एलियंस चंद्रमा का रंग बदलते हैं।", "सूरज लाल हो जाता है।"], h: "सूर्यास्त के बारे में सोचें।", e: "पृथ्वी का वायुमंडल एक लेंस की तरह काम करता है, जो अपने सभी सूर्योदय और सूर्यास्त से लंबी तरंग दैर्ध्य लाल बत्ती को पृथ्वी की छाया में मोड़ता है, चंद्रमा को लाल रंग देता है।" },
+                'q4_4': { t: "हमें हर महीने सूर्य ग्रहण क्यों नहीं होता?", o: ["चाँद बहुत तेज़ है।", "चंद्रमा की कक्षा थोड़ी झुकी हुई है, इसलिए इसकी छाया आमतौर पर पृथ्वी से चूक जाती है।", "सूरज रास्ते से हट जाता।", "हम करते हैं, लेकिन वे रात में होते हैं।"], h: "कक्षाएं हर बार पूरी तरह से संरेखित नहीं होती हैं।", e: "चंद्रमा की कक्षा पृथ्वी की कक्षा के सापेक्ष लगभग 5 डिग्री झुकी हुई है, इसलिए यह आमतौर पर सूर्य के थोड़ा ऊपर या नीचे से गुजरती है, एक सटीक संरेखण से गायब है।" },
+                'q4_5': { t: "विशेष चश्मे के बिना सीधे देखने के लिए कौन सा सुरक्षित है?", o: ["पूर्ण सूर्य ग्रहण।", "आंशिक सूर्य ग्रहण।", "चंद्र ग्रहण।", "A और C दोनों सही हैं।"], h: "सूरज को देखना बुरा है। चाँद को देखना ठीक है।", e: "पूर्ण सूर्य ग्रहण (केवल 100% समग्रता चरण के दौरान) और चंद्र ग्रहण सीधे देखने के लिए पूरी तरह से सुरक्षित हैं। आंशिक सूर्य ग्रहण कभी सुरक्षित नहीं होते हैं।" },
+                'q4_6': { t: "सूर्य ग्रहण होने के लिए चंद्रमा किस चरण में होना चाहिए?", o: ["पूर्णिमा", "अमावस्या (New Moon)", "पहली तिमाही", "वर्धमान (Crescent)"], h: "चंद्रमा का हमारी ओर का हिस्सा अंधेरा होना चाहिए।", e: "सूर्य ग्रहण केवल अमावस्या के दौरान हो सकता है, जो सटीक चरण है जब चंद्रमा पृथ्वी और सूर्य के बीच स्थित होता है।" },
+                'q4_7': { t: "चंद्र ग्रहण होने के लिए चंद्रमा किस चरण में होना चाहिए?", o: ["पूर्णिमा", "अमावस्या", "तीसरी तिमाही", "गिब्बस (Gibbous)"], h: "पृथ्वी की छाया को पूरे दृश्यमान चेहरे को कवर करने की आवश्यकता है।", e: "चंद्र ग्रहण केवल पूर्णिमा के दौरान हो सकता है, जो तब होता है जब पृथ्वी सूर्य और चंद्रमा के बीच स्थित होती है।" },
+                'q4_8': { t: "पूर्ण सूर्य ग्रहण का अनुभव किसे होता है?", o: ["दिन के दौरान पृथ्वी पर हर कोई।", "केवल पृथ्वी पर चंद्रमा के छोटे छाया पथ के अंदर स्थित लोग।", "केवल अंतरिक्ष में लोग।", "पृथ्वी के रात के हिस्से में हर कोई।"], h: "पृथ्वी पर चंद्रमा की छाया अपेक्षाकृत छोटी है।", e: "चंद्रमा छोटा है, इसलिए इसकी गहरी आंतरिक छाया (अम्ब्रा) पृथ्वी की सतह पर केवल एक बहुत ही संकीर्ण पट्टी को कवर करती है, जो समग्रता को देखता है उसे सीमित करता है।" },
+                'q4_9': { t: "सूर्य ग्रहण अनिवार्य रूप से एक विशाल है...", o: ["इंद्रधनुष", "प्रतिबिंब", "चंद्रमा द्वारा पृथ्वी पर डाली गई छाया।", "सूर्य पर विस्फोट।"], h: "आप अंतरिक्ष में छाया के बारे में जो जानते हैं उसे लागू करें।", e: "ग्रहण अंतरिक्ष में प्रकाश और छाया का एक विशाल प्रदर्शन है। सूर्य ग्रहण केवल चंद्रमा है जो पृथ्वी पर अपनी भौतिक छाया डाल रहा है।" },
+                'q4_10': { t: "यदि चंद्रमा पृथ्वी से बहुत दूर होता, तो सूर्य ग्रहण कैसे बदल जाता?", o: ["वे दिनों तक चलेंगे।", "हमारे पास कभी भी पूर्ण ग्रहण नहीं होगा, केवल 'वलयाकार' ग्रहण होगा।", "वे हर हफ्ते होंगे।", "वे चमकीले हो जाएंगे।"], h: "दूरी स्पष्ट आकार को प्रभावित करती है।", e: "यदि चंद्रमा दूर होता, तो आकाश में उसका स्पष्ट आकार सूर्य को पूरी तरह से अवरुद्ध करने के लिए बहुत छोटा होता, जिससे 'अग्नि का वलय' निकल जाता।" },
+                'q4_11': { t: "चंद्र ग्रहण के दौरान प्रकाश को कौन रोकता है?", o: ["चांद", "सूरज", "पृथ्वी", "बादल"], h: "चाँद काला हो जाता है। छाया कौन डाल रहा है?", e: "चंद्र ग्रहण के दौरान, पृथ्वी स्वयं को सूर्य और चंद्रमा के बीच रखती है, जिससे पृथ्वी की विशाल छाया चंद्रमा पर पड़ती है।" },
+                'q4_12': { t: "सूर्य का चमकता हुआ बाहरी वायुमंडल, जो केवल पूर्ण सूर्य ग्रहण के दौरान दिखाई देता है, कहलाता है...", o: ["कोर", "कोरोना", "क्रस्ट", "मेंटल"], h: "इसका अर्थ है 'ताज'।", e: "कोरोना सूर्य का बेहद गर्म, चमकता हुआ बाहरी वातावरण है, जो सामान्य रूप से सूर्य की चमक से छिपा होता है लेकिन समग्रता के दौरान सुरक्षित रूप से दिखाई देता है।" },
+                'q4_13': { t: "एक विशिष्ट स्थान पर पूर्ण सूर्य ग्रहण आमतौर पर कितने समय तक रहता है?", o: ["कुछ सेकंड से लेकर कुछ मिनटों तक।", "लगभग एक घंटा।", "पूरा एक दिन।", "पूरा एक महीना।"], h: "छाया पृथ्वी के आर-पार बहुत तेज़ी से घूम रही है।", e: "चूंकि पृथ्वी घूम रही है और चंद्रमा तेजी से परिक्रमा कर रहा है, छोटी अम्ब्रेला छाया सतह पर दौड़ती है, जिससे समग्रता केवल कुछ मिनटों तक चलती है।" },
+                'q4_14': { t: "क्या आप दिन में चंद्र ग्रहण देख सकते हैं?", o: ["हाँ आसानी से।", "नहीं, यह तभी होता है जब चंद्रमा पृथ्वी के रात के हिस्से में होता है।", "केवल यदि आप विशेष चश्मा पहनते हैं।", "केवल भूमध्य रेखा के पास।"], h: "पृथ्वी को सूर्य और चंद्रमा के बीच होना चाहिए।", e: "चंद्र ग्रहण तब होता है जब चंद्रमा पृथ्वी की छाया में प्रवेश करता है। इसके लिए आपको पृथ्वी के रात वाले हिस्से पर होना आवश्यक है।" },
+                'q4_15': { t: "'वलयाकार (annular)' सूर्य ग्रहण क्या है?", o: ["एक ग्रहण जो सालाना (हर साल) होता है।", "जब चंद्रमा सूर्य को ढकता है लेकिन किनारे के चारों ओर एक चमकीला वलय दिखाई देता है।", "चंद्र ग्रहण।", "क्षुद्रग्रह के कारण होने वाला ग्रहण।"], h: "वलयाकार का अर्थ है 'अंगूठी के आकार का'।", e: "एक वलयाकार ग्रहण तब होता है जब चंद्रमा पृथ्वी से थोड़ा दूर होता है और सूर्य को पूरी तरह से कवर करने के लिए बहुत छोटा दिखाई देता है।" },
+                'q4_16': { t: "सूर्य ग्रहण के दौरान, जानवर अजीब व्यवहार कर सकते हैं। क्यों?", o: ["गुरुत्वाकर्षण बदल जाता है।", "उन्हें लगता है कि रात अचानक गिर रही है क्योंकि यह अंधेरा और ठंडा हो जाता है।", "वे चाँद को चलते हुए सुन सकते हैं।", "वे सूरज से डरते हैं।"], h: "जानवर यह जानने के लिए प्रकाश पर निर्भर करते हैं कि कब सोना है।", e: "प्रकाश और तापमान में अचानक, अप्राकृतिक गिरावट सूर्यास्त की नकल करती है, पक्षियों और जानवरों को सोने के व्यवहार को प्रदर्शित करने के लिए धोखा देती है।" },
+                'q4_17': { t: "यदि आप चंद्रमा पर रहते थे, तो आप पृथ्वी पर चंद्र ग्रहण के दौरान क्या देखेंगे?", o: ["सूरज को ढंकने वाली एक विशाल छाया।", "पृथ्वी पूरी तरह से अंधेरी हो रही है।", "पृथ्वी के चारों ओर एक चमकीला लाल वलय (सभी सूर्योदय और सूर्यास्त)।", "कुछ भी असामान्य नहीं।"], h: "आप सूरज को रोकते हुए पृथ्वी को देख रहे हैं।", e: "पृथ्वी को देखते हुए, आप देखेंगे कि यह सूर्य को पूरी तरह से अवरुद्ध कर रहा है, केवल एक शानदार लाल अंगूठी से प्रकाशित है।" },
+                'q4_18': { t: "किस प्रकार के ग्रहण को एक ही समय में अधिक लोग देख सकते हैं?", o: ["सूर्य ग्रहण", "चन्द्र ग्रहण", "दोनों को समान संख्या में लोग देखते हैं।", "यह मौसम पर निर्भर करता है।"], h: "पृथ्वी की छाया चंद्रमा की छाया से बहुत बड़ी है।", e: "पृथ्वी की छाया विशाल है और आसानी से पूरे चंद्रमा को कवर करती है, जिसका अर्थ है कि पृथ्वी के अंधेरे पक्ष पर कोई भी व्यक्ति एक साथ चंद्र ग्रहण देख सकता है।" },
+                'q4_19': { t: "सूर्य ग्रहण के दौरान पृथ्वी की सतह पर चंद्रमा की छाया किस कारण दौड़ती है?", o: ["पृथ्वी का घूर्णन और चंद्रमा की कक्षा।", "सूरज बहुत तेजी से चल रहा है।", "हवा छाया को धकेल रही है।", "चंद्रमा अपनी धुरी पर घूम रहा है।"], h: "अंतरिक्ष में सब कुछ घूम रहा है।", e: "अपनी कक्षा में चंद्रमा की निरंतर गति और लगातार घूमने वाली पृथ्वी का संयोजन छाया को तेजी से आगे बढ़ने वाले मार्ग का पता लगाने का कारण बनता है।" },
+                'q4_20': { t: "प्राचीन लोग अक्सर सूर्य ग्रहण से भयभीत होते थे क्योंकि...", o: ["वे खराब मौसम का कारण बने।", "उन्हें लगा कि कोई राक्षस सूरज खा रहा है और वे विज्ञान को नहीं समझते हैं।", "वे बहुत जोर से थे।", "वे हमेशा भूकंप का कारण बने।"], h: "बिना किसी चेतावनी के सूरज के गायब होने की कल्पना करें।", e: "आधुनिक खगोलीय ज्ञान के बिना, जीवन देने वाले सूर्य का अचानक, अस्पष्टीकृत गायब होना भयानक था और अक्सर पौराणिक जानवरों को दोषी ठहराया जाता था।" }
+            }
+        };
+
+        const getTranslatedQuestion = (q, lang) => {
+            if (lang === 'en') return q;
+            if (exactTranslations[lang] && exactTranslations[lang][q.id]) {
+                const data = exactTranslations[lang][q.id];
+                return { ...q, text: data.t, options: data.o, hint: data.h, explanation: data.e };
+            }
+            return {
+                ...q,
+                text: `[${lang.toUpperCase()}] ${q.text}`,
+                options: q.options.map(opt => `[${lang.toUpperCase()}] ${opt}`),
+                hint: `[${lang.toUpperCase()}] ${q.hint}`,
+                explanation: q.explanation
+            };
+        };
+
+        // --- AUDIO SYNTHESIZER ---
+        const playSound = (type) => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                
+                if (type === 'click') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'sine'; osc.frequency.setValueAtTime(600, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.03);
+                    gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.03);
+                    osc.start(); osc.stop(ctx.currentTime + 0.03);
+                } else if (type === 'select') {
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.connect(gain); gain.connect(ctx.destination);
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(300, ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(500, ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.08, ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.1);
+                    osc.start(); osc.stop(ctx.currentTime + 0.1);
+                } else if (type === 'complete') {
+                    const freqs = [523.25, 659.25, 783.99, 1046.50]; 
+                    freqs.forEach((freq, i) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.connect(gain); gain.connect(ctx.destination);
+                        osc.type = 'sine'; osc.frequency.value = freq;
+                        gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.08);
+                        gain.gain.linearRampToValueAtTime(0.1, ctx.currentTime + i * 0.08 + 0.02);
+                        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.08 + 0.4);
+                        osc.start(ctx.currentTime + i * 0.08); osc.stop(ctx.currentTime + i * 0.08 + 0.4);
+                    });
+                }
+            } catch (e) { console.log("Audio skipped", e); }
+        };
+
+        const GlowOrb = ({ color, top, left, delay }) => (
+            <div 
+                className={`absolute rounded-full mix-blend-screen filter blur-[100px] opacity-40 animate-pulse-slow ${color}`}
+                style={{ top, left, width: '40vw', height: '40vw', animationDelay: delay }}
+            />
+        );
+
+        // Array shuffler utility
+        const shuffleArray = (array) => {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        };
+
+        // --- MAIN APP COMPONENT ---
+        function App() {
+            const [appState, setAppState] = useState('start'); // start, playing, review, results, analysis
+            const [lang, setLang] = useState('en'); 
+            const [mode, setMode] = useState('untimed'); 
+            const [currentSectionIdx, setCurrentSectionIdx] = useState(0);
+            const [currentQuestionIdx, setCurrentQuestionIdx] = useState(0);
+            const [answers, setAnswers] = useState({}); 
+            const [timeRemaining, setTimeRemaining] = useState(0); 
+            const [timeStr, setTimeStr] = useState("10:02 AM"); 
+            const [activeQuizData, setActiveQuizData] = useState(null); 
+            const [showExitModal, setShowExitModal] = useState(false); 
+            const [showSubmitModal, setShowSubmitModal] = useState(false); 
+
+            const ui = T[lang] || T.en;
+            const currentSectionId = SECTIONS[currentSectionIdx].id;
+
+            const DefaultAppBackground = () => (
+                <>
+                    <div className="fixed inset-0 pointer-events-none z-[-3]" style={{ backgroundImage: `url('assets/chapter%20background%20lowres.jpg')`, backgroundSize: 'cover', backgroundPosition: 'center', backgroundAttachment: 'fixed' }}></div>
+                    <div className="fixed inset-0 pointer-events-none z-[-2]" style={{ background: 'rgba(0,0,0,0.30)' }}></div>
+                    {/* Particle animations disabled for ARM GPU / smartboard */}
+                </>
+            );
+            const questionsList = activeQuizData ? activeQuizData[currentSectionId] : [];
+            const currentQuestion = questionsList ? questionsList[currentQuestionIdx] : null;
+            const totalQuestions = activeQuizData ? Object.values(activeQuizData).reduce((acc, section) => acc + section.length, 0) : 0;
+            const answeredCount = Object.keys(answers).length;
+
+            const translatedSections = useMemo(() => getTranslatedSections(lang), [lang]);
+            const translatedCurrentQuestion = useMemo(() => currentQuestion ? getTranslatedQuestion(currentQuestion, lang) : null, [currentQuestion, lang]);
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    const d = new Date();
+                    setTimeStr(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                }, 60000);
+                const d = new Date();
+                setTimeStr(d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
+                return () => clearInterval(timer);
+            }, []);
+
+            useEffect(() => {
+                let interval = null;
+                if (appState === 'playing' && mode === 'timed' && timeRemaining > 0) {
+                    interval = setInterval(() => { setTimeRemaining((prev) => prev - 1); }, 1000);
+                } else if (appState === 'playing' && mode === 'timed' && timeRemaining === 0) {
+                    setAppState('results');
+                }
+                return () => clearInterval(interval);
+            }, [appState, mode, timeRemaining]);
+
+            useEffect(() => {
+                if (appState === 'results') playSound('complete');
+            }, [appState]);
+
+            const startGame = (selectedMode) => {
+                playSound('click'); setMode(selectedMode);
+                if (selectedMode === 'timed') setTimeRemaining(15 * 60); 
+                
+                const newQuizData = {};
+                for (const sectionKey in QUIZ_DATA) {
+                    const shuffledQs = shuffleArray(QUIZ_DATA[sectionKey]).slice(0, 10);
+                    newQuizData[sectionKey] = shuffledQs.map(q => ({
+                        ...q,
+                        shuffledIndices: shuffleArray([0, 1, 2, 3])
+                    }));
+                }
+                setActiveQuizData(newQuizData);
+                
+                setAppState('playing'); setAnswers({});
+                setCurrentSectionIdx(0); setCurrentQuestionIdx(0);
+            };
+
+            const handleSelectOption = (originalIndex) => {
+                playSound('select');
+                setAnswers(prev => ({ ...prev, [currentQuestion.id]: originalIndex }));
+            };
+
+            const formatTime = (seconds) => {
+                if (seconds === null || seconds === undefined) return "--:--";
+                const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const s = (seconds % 60).toString().padStart(2, '0');
+                return `${m}:${s}`;
+            };
+
+            const handleNextArrow = () => {
+                playSound('click');
+                if (currentQuestionIdx < questionsList.length - 1) {
+                    setCurrentQuestionIdx(prev => prev + 1);
+                } else if (currentSectionIdx < SECTIONS.length - 1) {
+                    setCurrentSectionIdx(prev => prev + 1);
+                    setCurrentQuestionIdx(0);
+                } else {
+                    setAppState('review');
+                }
+            };
+
+            const handlePrev = () => {
+                playSound('click');
+                if (currentQuestionIdx > 0) {
+                    setCurrentQuestionIdx(prev => prev - 1);
+                } else if (currentSectionIdx > 0) {
+                    setCurrentSectionIdx(prev => prev - 1);
+                    setCurrentQuestionIdx(activeQuizData[SECTIONS[currentSectionIdx - 1].id].length - 1);
+                }
+            };
+
+            const handleMainAction = () => {
+                playSound('click');
+                const isLastQuestionInSection = currentQuestionIdx === questionsList.length - 1;
+                const isLastSection = currentSectionIdx === SECTIONS.length - 1;
+
+                if (!isLastQuestionInSection) {
+                    setCurrentQuestionIdx(prev => prev + 1);
+                } else if (isLastQuestionInSection && !isLastSection) {
+                    setCurrentSectionIdx(prev => prev + 1);
+                    setCurrentQuestionIdx(0);
+                } else {
+                    setAppState('review');
+                }
+            };
+
+            const calculateTotalScore = () => {
+                let score = 0;
+                Object.entries(answers).forEach(([qId, ansIdx]) => {
+                    for (const sectionKey in activeQuizData) {
+                        const q = activeQuizData[sectionKey].find(item => item.id === qId);
+                        if (q && q.correct === ansIdx) { score++; break; }
+                    }
+                });
+                return score;
+            };
+
+            const handleBackClick = () => {
+                playSound('click');
+                setShowExitModal(true);
+            };
+
+            const confirmExit = () => {
+                playSound('click');
+                setShowExitModal(false);
+                setAppState('start');
+            };
+
+            const cancelExit = () => {
+                playSound('click');
+                setShowExitModal(false);
+            };
+
+            const handleFinalSubmitClick = () => {
+                playSound('click');
+                setShowSubmitModal(true);
+            };
+
+            const confirmSubmit = () => {
+                playSound('click');
+                setShowSubmitModal(false);
+                setAppState('results');
+            };
+
+            const cancelSubmit = () => {
+                playSound('click');
+                setShowSubmitModal(false);
+            };
+
+            const returnToPlatform = () => {
+                playSound('click');
+                if (window.parent && window.parent !== window) {
+                    const overlay = window.parent.document.getElementById('app-overlay');
+                    if (overlay) {
+                        overlay.classList.add('hidden');
+                        setTimeout(() => {
+                            const iframe = window.parent.document.getElementById('app-iframe');
+                            if (iframe) { iframe.src = ''; iframe.removeAttribute('src'); }
+                        }, 300);
+                        return;
+                    }
+                }
+            };
+
+            // --- REUSABLE TOP NAVIGATION COMPONENT ---
+            const renderTopNav = (showTime = true, backAction = handleBackClick, backText = ui.back) => (
+                <header className="fixed top-0 left-0 right-0 z-50 flex justify-between items-center p-3 sm:p-6 gap-3 pointer-events-none">
+                    <button onClick={backAction} className="pointer-events-auto flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full transition-all text-white font-medium shadow-lg shrink-0">
+                        <LucideIcon name="arrow-left" className="w-5 h-5 shrink-0" />
+                        <span className="hidden sm:block whitespace-nowrap">{backText}</span>
+                    </button>
+
+                    {showTime && (
+                        <div className="pointer-events-auto flex items-center gap-2 sm:gap-4 px-4 sm:px-6 py-2 sm:py-2.5 bg-white/10 backdrop-blur-md border border-white/20 rounded-full shadow-lg text-white shrink-0 max-w-[50%] overflow-hidden">
+                            <div className="text-sm sm:text-xl font-light tracking-wide shrink-0 hidden md:block">{timeStr}</div>
+                            <div className="w-px h-4 sm:h-6 bg-white/20 shrink-0 hidden md:block"></div>
+                            {mode === 'timed' ? (
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-cyan-400">
+                                    <LucideIcon name="timer" className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                    <span className="text-sm sm:text-xl font-mono font-bold">{formatTime(timeRemaining)}</span>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-1.5 sm:gap-2 text-white/70">
+                                    <LucideIcon name="infinity" className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+                                    <span className="text-[10px] sm:text-xs uppercase tracking-widest font-medium whitespace-nowrap">{ui.zenMode}</span>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </header>
+            );
+
+            const exitModalJSX = showExitModal ? (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={cancelExit}></div>
+                    <div className="relative bg-slate-900 border border-white/20 p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center animate-[pulse_0.2s_ease-out]">
+                        <LucideIcon name="alert-triangle" className="w-16 h-16 text-red-500/80 mx-auto mb-4" />
+                        <h3 className="text-2xl font-bold text-white mb-2">{ui.exitConfirm}</h3>
+                        <p className="text-white/60 mb-8">{ui.exitWarning}</p>
+                        <div className="flex gap-4">
+                            <button onClick={cancelExit} className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors">
+                                {ui.cancel}
+                            </button>
+                            <button onClick={confirmExit} className="flex-1 px-4 py-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/30 font-medium transition-colors">
+                                {ui.yesExit}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null;
+
+            const submitModalJSX = showSubmitModal ? (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={cancelSubmit}></div>
+                    <div className="relative bg-slate-900 border border-cyan-500/30 p-8 rounded-3xl shadow-[0_0_40px_rgba(34,211,238,0.15)] max-w-sm w-full text-center animate-[pulse_0.2s_ease-out]">
+                        <LucideIcon name="check-circle" className="w-16 h-16 text-cyan-400 mx-auto mb-4" />
+                        <h3 className="text-2xl font-bold text-white mb-2">{ui.submitConfirm || T.en.submitConfirm}</h3>
+                        <p className="text-white/60 mb-8">{ui.submitWarning || T.en.submitWarning}</p>
+                        <div className="flex gap-4">
+                            <button onClick={cancelSubmit} className="flex-1 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium transition-colors">
+                                {ui.cancel || T.en.cancel}
+                            </button>
+                            <button onClick={confirmSubmit} className="flex-1 px-4 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold transition-colors">
+                                {ui.yesSubmit || T.en.yesSubmit}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null;
+
+            if (appState === 'start') {
+                return (
+                    <div className="min-h-screen w-full text-white font-sans flex items-center justify-center relative overflow-hidden">
+                        <DefaultAppBackground />
+                        
+                        <div className="absolute top-4 sm:top-6 left-4 sm:left-6 z-30">
+                            <button onClick={returnToPlatform} className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full transition-all text-white font-medium shadow-lg shrink-0">
+                                <LucideIcon name="arrow-left" className="w-5 h-5 shrink-0" />
+                                <span className="hidden sm:block whitespace-nowrap">Back</span>
+                            </button>
+                        </div>
+
+                        <div className="absolute top-4 sm:top-6 right-4 sm:right-6 z-30 bg-white/10 backdrop-blur-md border border-white/20 rounded-full flex items-center px-4 py-2 shadow-lg group">
+                            <LucideIcon name="globe" className="w-4 h-4 text-cyan-300 mr-2 group-hover:animate-spin" />
+                            <select className="bg-transparent text-white text-sm outline-none cursor-pointer appearance-none pr-4" value={lang} onChange={(e) => { playSound('click'); setLang(e.target.value); }}>
+                                {Object.entries(LANGUAGES).map(([key, val]) => (
+                                    <option key={key} value={key} className="bg-slate-800 text-white">{val.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="z-10 glass-panel-card p-12 max-w-2xl text-center mx-4 w-[calc(100%-2rem)]">
+                            <LucideIcon name="box" className="w-20 h-20 text-cyan-400 mx-auto mb-6 animate-bounce" />
+                            <h1 className="text-4xl sm:text-5xl font-bold mb-4 tracking-tight">{ui.title}</h1>
+                            <p className="text-xl sm:text-3xl font-semibold text-white/90 mb-10 tracking-wide">{ui.subtitle}</p>
+                            
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <button onClick={() => startGame('untimed')} className="group relative bg-white/5 hover:bg-white/10 border border-white/10 p-8 rounded-2xl transition-all hover:scale-105">
+                                    <LucideIcon name="infinity" className="w-12 h-12 text-blue-400 mx-auto mb-4 group-hover:animate-pulse" />
+                                    <h3 className="text-2xl font-semibold">{ui.zenMode}</h3>
+                                    <p className="text-sm text-white/50 mt-2">{ui.zenDesc}</p>
+                                </button>
+                                
+                                <button onClick={() => startGame('timed')} className="group relative bg-cyan-900/30 hover:bg-cyan-800/40 border border-cyan-400/30 p-8 rounded-2xl transition-all hover:scale-105">
+                                    <LucideIcon name="timer" className="w-12 h-12 text-cyan-400 mx-auto mb-4 group-hover:animate-spin" />
+                                    <h3 className="text-2xl font-semibold">{ui.challengeMode}</h3>
+                                    <p className="text-sm text-cyan-200/50 mt-2">{ui.challengeDesc}</p>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (appState === 'analysis') {
+                return (
+                    <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 sm:pt-24 pb-12 relative overflow-hidden">
+                        <DefaultAppBackground />
+
+                        {renderTopNav(false, () => { playSound('click'); setAppState('results'); }, ui.backToResults || T.en.backToResults)}
+
+                        <div className="relative z-10 w-full max-w-4xl h-fit mt-4">
+                            <h2 className="text-3xl sm:text-4xl font-serif tracking-wide text-center mb-8 sm:mb-12 text-white/90">{ui.analysisTitle || T.en.analysisTitle}</h2>
+                            <div className="space-y-8 sm:space-y-12">
+                                {SECTIONS.map((section, sIdx) => {
+                                    const qList = activeQuizData[section.id];
+                                    return (
+                                        <div key={section.id} className="glass-panel-card p-6 sm:p-8">
+                                            <h3 className="text-xl sm:text-2xl font-serif tracking-wide text-cyan-400 mb-6 sm:mb-8 border-b border-white/10 pb-4 flex items-center gap-3">
+                                                <LucideIcon name={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                                                {translatedSections[sIdx].title.toUpperCase()}
+                                            </h3>
+                                            <div className="space-y-6 sm:space-y-8">
+                                                {qList.map((q, qIdx) => {
+                                                    const transQ = getTranslatedQuestion(q, lang);
+                                                    const userAnsIdx = answers[q.id];
+                                                    const isCorrect = userAnsIdx === q.correct;
+                                                    
+                                                    return (
+                                                        <div key={q.id} className="bg-black/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/5 relative">
+                                                            {/* Correct/Incorrect icon indicator */}
+                                                            <div className={`absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg border-2 sm:border-4 border-slate-900 ${userAnsIdx === undefined ? 'bg-slate-500' : (isCorrect ? 'bg-green-500' : 'bg-red-500')}`}>
+                                                                <LucideIcon name={userAnsIdx === undefined ? "minus" : (isCorrect ? "check" : "x")} className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" />
+                                                            </div>
+
+                                                            <p className="text-lg sm:text-xl leading-relaxed text-white/90 font-medium mb-6 pr-4">
+                                                                <span className="font-bold text-cyan-300 mr-2">Q{qIdx + 1}.</span>{transQ.text}
+                                                            </p>
+
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6">
+                                                                {q.shuffledIndices.map((origIdx, rIdx) => {
+                                                                    const optText = transQ.options[origIdx];
+                                                                    let btnClass = "bg-white/5 border-white/10 text-white/60";
+                                                                    let iconName = null;
+                                                                    let iconColor = "";
+
+                                                                    if (origIdx === q.correct) {
+                                                                        btnClass = "bg-green-500/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)] text-green-100";
+                                                                        iconName = "check-circle-2";
+                                                                        iconColor = "text-green-400";
+                                                                    } else if (origIdx === userAnsIdx && origIdx !== q.correct) {
+                                                                        btnClass = "bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] text-red-100";
+                                                                        iconName = "x-circle";
+                                                                        iconColor = "text-red-400";
+                                                                    }
+
+                                                                    return (
+                                                                        <div key={rIdx} className={`relative overflow-hidden flex items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${btnClass}`}>
+                                                                            <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mr-3 bg-black/20 shrink-0 text-sm sm:text-base">{rIdx + 1}</span>
+                                                                            <span className="text-sm sm:text-base leading-snug">{optText}</span>
+                                                                            {iconName && <LucideIcon name={iconName} className={`w-4 h-4 sm:w-5 sm:h-5 ml-auto shrink-0 ${iconColor}`} />}
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+
+                                                            <div className="bg-cyan-900/30 border border-cyan-500/20 p-4 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col gap-2 sm:gap-3 text-cyan-100">
+                                                                <div className="flex items-center gap-2">
+                                                                    <LucideIcon name="lightbulb" className="w-5 h-5 text-cyan-400 shrink-0" />
+                                                                    <span className="font-bold text-sm sm:text-base">{ui.explanationLabel || 'Explanation'}</span>
+                                                                </div>
+                                                                <p className="text-sm leading-relaxed">{transQ.explanation || transQ.hint || transQ.e}</p>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )
+            }
+
+            if (appState === 'review') {
+                return (
+                    <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 pb-12 relative overflow-hidden">
+                        <DefaultAppBackground />
+
+                        {renderTopNav(true, handleBackClick, ui.back || T.en.back)}
+
+                        <div className="relative z-10 w-full max-w-4xl glass-panel-card p-6 sm:p-8 md:p-12 h-fit mt-4">
+                            <h2 className="text-3xl sm:text-4xl font-serif tracking-wide text-center mb-8 sm:mb-12 text-white/90">{ui.reviewTitle || T.en.reviewTitle}</h2>
+                            
+                            <div className="space-y-6 sm:space-y-8 mb-8 sm:mb-12">
+                                {SECTIONS.map((section, sIdx) => {
+                                    const qList = activeQuizData[section.id];
+                                    return (
+                                        <div key={section.id} className="bg-black/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/5">
+                                            <h3 className="text-lg sm:text-xl font-medium mb-4 text-white/80 flex items-center gap-3">
+                                                <LucideIcon name={section.icon} className="w-5 h-5 text-cyan-400" />
+                                                {translatedSections[sIdx].title}
+                                            </h3>
+                                            <div className="flex flex-wrap gap-2 sm:gap-3">
+                                                {qList.map((q, qIdx) => {
+                                                    const isAns = answers[q.id] !== undefined;
+                                                    return (
+                                                        <button 
+                                                            key={q.id}
+                                                            onClick={() => {
+                                                                playSound('click');
+                                                                setCurrentSectionIdx(sIdx);
+                                                                setCurrentQuestionIdx(qIdx);
+                                                                setAppState('playing');
+                                                            }}
+                                                            className={`w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl font-bold text-base sm:text-lg flex items-center justify-center transition-all hover:scale-110 ${isAns ? 'bg-green-500/20 text-green-400 border border-green-500/30 shadow-[0_0_10px_rgba(34,197,94,0.2)]' : 'bg-white/5 text-white/40 border border-white/10 hover:bg-white/20'}`}
+                                                        >
+                                                            {qIdx + 1}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row justify-center gap-4 mt-8">
+                                <button 
+                                    onClick={() => { playSound('click'); setAppState('playing'); }}
+                                    className="px-6 sm:px-8 py-3 sm:py-5 bg-white/5 hover:bg-white/10 text-white font-bold text-base sm:text-xl rounded-xl sm:rounded-2xl transition-all border border-white/10 flex items-center justify-center gap-2"
+                                >
+                                    <LucideIcon name="arrow-left" className="w-5 h-5" />
+                                    {ui.backToQuiz || T.en.backToQuiz}
+                                </button>
+                                <button 
+                                    onClick={handleFinalSubmitClick}
+                                    className="px-8 sm:px-12 py-3 sm:py-5 bg-cyan-500 hover:bg-cyan-400 text-slate-900 font-bold text-base sm:text-xl rounded-xl sm:rounded-2xl shadow-[0_0_30px_rgba(34,211,238,0.4)] transition-all hover:-translate-y-1 flex items-center justify-center gap-2"
+                                >
+                                    <LucideIcon name="check-circle" className="w-5 h-5" />
+                                    {ui.finalSubmit || T.en.finalSubmit}
+                                </button>
+                            </div>
+                        </div>
+                        {exitModalJSX}
+                        {submitModalJSX}
+                    </div>
+                );
+            }
+
+            if (appState === 'results') {
+                const score = calculateTotalScore();
+                return (
+                    <div className="min-h-screen w-full text-white font-sans flex items-center justify-center relative overflow-hidden">
+                        <DefaultAppBackground />
+                        <GlowOrb color="bg-green-600" top="-10%" left="-10%" delay="0s" />
+                        
+                        <div className="z-10 glass-panel-card p-8 sm:p-12 max-w-lg text-center mx-4 w-full">
+                            <LucideIcon name="check-circle-2" className="w-20 h-20 sm:w-24 sm:h-24 text-green-400 mx-auto mb-6" />
+                            <h1 className="text-3xl sm:text-4xl font-bold mb-2">{ui.complete}</h1>
+                            <p className="text-white/70 mb-8">{ui.subtitle}</p>
+                            
+                            <div className="bg-black/20 rounded-2xl p-6 mb-8">
+                                <div className="text-5xl sm:text-6xl font-black text-cyan-400 mb-2">
+                                    {score} <span className="text-xl sm:text-2xl text-white/50">/ {totalQuestions}</span>
+                                </div>
+                                <p className="text-base sm:text-lg">{ui.percentage}: {Math.round((score/totalQuestions)*100)}%</p>
+                            </div>
+                            
+                            <div className="flex flex-col gap-4 mt-8">
+                                <button onClick={() => { playSound('click'); setAppState('analysis'); }} className="flex items-center justify-center w-full gap-2 bg-blue-500 hover:bg-blue-400 text-slate-900 py-3 sm:py-4 rounded-xl transition-colors font-bold text-base sm:text-lg shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:-translate-y-1">
+                                    <LucideIcon name="bar-chart-2" className="w-5 h-5" /> {ui.analyseBtn || T.en.analyseBtn}
+                                </button>
+                                <button onClick={() => { playSound('click'); setAppState('start'); }} className="flex items-center justify-center w-full gap-2 bg-white/10 hover:bg-white/20 border border-white/20 py-3 sm:py-4 rounded-xl transition-colors font-semibold text-sm sm:text-base">
+                                    <LucideIcon name="refresh-cw" className="w-4 h-4 sm:w-5 sm:h-5" /> {ui.retake}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // At this point we are guaranteed to be in 'playing' state with activeQuizData loaded.
+            const selectedIdx = answers[currentQuestion.id];
+            const qIconName = currentQuestion.icon || 'help-circle'; 
+            const isLastQuestionInSection = currentQuestionIdx === questionsList.length - 1;
+            const isLastSection = currentSectionIdx === SECTIONS.length - 1;
+
+            let mainActionText = ui.nextQuestion || T.en.nextQuestion;
+            if (isLastQuestionInSection && !isLastSection) mainActionText = ui.submitSection || T.en.submitSection;
+            if (isLastQuestionInSection && isLastSection) mainActionText = ui.reviewBtn || T.en.reviewBtn;
+
+            return (
+                <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 pb-12 relative overflow-hidden">
+                    <DefaultAppBackground />
+
+                    {renderTopNav(true, handleBackClick, ui.back)}
+
+                    <div className="relative z-10 w-full max-w-[1400px] h-auto flex flex-col lg:flex-row gap-6 mt-4">
+                        
+                        {/* Main Question Panel */}
+                        <div className="flex-1 flex flex-col glass-panel-card p-6 sm:p-10 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none rounded-3xl sm:rounded-[40px]"></div>
+
+                            <div className="flex flex-col xl:flex-row justify-between items-center xl:items-start gap-6 mb-8 relative z-10">
+                                {/* NEW SECTION NAVIGATOR (Near Questions) */}
+                                <div className="flex items-center gap-1 bg-black/20 p-1.5 rounded-2xl border border-white/10 w-full sm:w-fit shrink-0 overflow-hidden">
+                                    <button 
+                                        onClick={() => { playSound('click'); setCurrentSectionIdx(Math.max(0, currentSectionIdx - 1)); setCurrentQuestionIdx(0); }} 
+                                        disabled={currentSectionIdx === 0}
+                                        className={`p-2 rounded-xl transition-colors shrink-0 ${currentSectionIdx === 0 ? 'text-white/20 cursor-not-allowed' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                    >
+                                        <LucideIcon name="chevron-left" className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
+                                    <div className="flex flex-col items-center px-2 sm:px-4 flex-1 sm:min-w-[200px] overflow-hidden">
+                                        <span className="text-[10px] sm:text-xs text-cyan-400 font-bold tracking-widest uppercase mb-0.5 sm:mb-1">
+                                            Section {currentSectionIdx + 1}
+                                        </span>
+                                        <h2 className="text-sm sm:text-lg md:text-xl font-serif tracking-wide text-white/90 text-center truncate w-full">
+                                            {translatedSections[currentSectionIdx].title.toUpperCase()}
+                                        </h2>
+                                    </div>
+                                    <button 
+                                        onClick={() => { playSound('click'); setCurrentSectionIdx(Math.min(SECTIONS.length - 1, currentSectionIdx + 1)); setCurrentQuestionIdx(0); }} 
+                                        disabled={currentSectionIdx === SECTIONS.length - 1}
+                                        className={`p-2 rounded-xl transition-colors shrink-0 ${currentSectionIdx === SECTIONS.length - 1 ? 'text-white/20 cursor-not-allowed' : 'text-white/60 hover:text-white hover:bg-white/10'}`}
+                                    >
+                                        <LucideIcon name="chevron-right" className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
+                                </div>
+                                
+                                {/* Unrestricted Q-Nav */}
+                                <div className="bg-black/40 backdrop-blur-md border border-white/10 rounded-[2rem] flex items-center p-1.5 shadow-lg w-full xl:w-fit max-w-full overflow-hidden">
+                                    <button onClick={handlePrev} className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors shrink-0 hidden sm:block">
+                                        <LucideIcon name="chevron-left" className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
+                                    
+                                    <div className="flex flex-wrap justify-center gap-1 sm:gap-1.5 px-1 sm:px-2 flex-1">
+                                        {questionsList.map((_, i) => {
+                                            const displayNum = i + 1;
+                                            const isActive = i === currentQuestionIdx;
+                                            return (
+                                                <button key={i} onClick={() => { playSound('click'); setCurrentQuestionIdx(i); }} className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-full text-xs sm:text-sm font-medium transition-all ${isActive ? 'bg-white/20 text-white' : 'text-white/40 hover:text-white/80 hover:bg-white/5'}`}>
+                                                    Q{displayNum}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+
+                                    <button onClick={handleNextArrow} className="p-2 hover:bg-white/10 rounded-full text-white/60 hover:text-white transition-colors shrink-0 hidden sm:block">
+                                        <LucideIcon name="chevron-right" className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Flexible Question Container - NO SCROLLBAR HERE */}
+                            <div className="relative z-10 bg-white/5 border border-white/10 rounded-2xl sm:rounded-3xl p-5 sm:p-8 mb-6 sm:mb-8 flex-1 shadow-inner">
+                                <div className="flex flex-col-reverse md:flex-row justify-between items-center md:items-start gap-6 sm:gap-8">
+                                    <div className="flex-1 w-full text-center md:text-left">
+                                        <p className="text-lg sm:text-2xl leading-relaxed text-white/90 font-medium">
+                                            <span className="font-bold text-cyan-300 mr-2">Q.</span>{translatedCurrentQuestion.text}
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-48 md:h-48 bg-black/20 rounded-2xl flex items-center justify-center shrink-0 border border-white/5 relative overflow-hidden group">
+                                        <LucideIcon name={qIconName} className="w-12 h-12 sm:w-16 sm:h-16 md:w-24 md:h-24 text-cyan-200 opacity-80 group-hover:scale-110 group-hover:text-cyan-100 transition-all duration-500 animate-[pulse_3s_ease-in-out_infinite]" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Randomized Options Grid */}
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 sm:gap-5 relative z-10 mb-8">
+                                {currentQuestion.shuffledIndices.map((originalIdx, renderIdx) => {
+                                    const optText = translatedCurrentQuestion.options[originalIdx];
+                                    const isSelected = selectedIdx === originalIdx;
+                                    return (
+                                        <button key={originalIdx} onClick={() => handleSelectOption(originalIdx)} className={`relative overflow-hidden group flex items-center p-4 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 border ${isSelected ? 'bg-cyan-900/40 border-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.3)]' : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/30'}`}>
+                                            <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/5 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 pointer-events-none"></div>
+                                            <span className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mr-3 sm:mr-4 text-sm sm:text-lg font-semibold shrink-0 transition-colors ${isSelected ? 'bg-cyan-500/20 text-cyan-300' : 'bg-white/10 text-white/60'}`}>{renderIdx + 1}</span>
+                                            <span className={`text-sm sm:text-lg leading-tight sm:leading-normal ${isSelected ? 'text-white' : 'text-white/80'}`}>{optText}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Always Active Main Action Button */}
+                            <div className="flex justify-end relative z-10 mt-auto">
+                                <button 
+                                    onClick={handleMainAction}
+                                    className="w-full sm:w-auto px-8 sm:px-10 py-3 sm:py-4 rounded-xl sm:rounded-2xl font-bold text-base sm:text-lg flex items-center justify-center gap-3 transition-all duration-300 bg-cyan-500 text-slate-900 shadow-[0_0_25px_rgba(34,211,238,0.5)] hover:bg-cyan-400 hover:shadow-[0_0_35px_rgba(34,211,238,0.7)] hover:-translate-y-1"
+                                >
+                                    {mainActionText}
+                                    <LucideIcon name={mainActionText === (ui.reviewBtn || T.en.reviewBtn) ? "clipboard-check" : "arrow-right"} className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Sticky Sidebar */}
+                        <div className="w-full lg:w-[380px] flex flex-col gap-6 sticky top-24 self-start">
+                            <div className="glass-panel-card p-6 sm:p-8">
+                                <h3 className="text-xs sm:text-sm text-white/50 uppercase tracking-widest mb-4 sm:mb-6 font-semibold">{ui.sections}</h3>
+                                <div className="flex flex-col gap-3 sm:gap-4">
+                                    {translatedSections.map((section, idx) => {
+                                        const isActive = currentSectionIdx === idx;
+                                        return (
+                                            <button key={section.id} onClick={() => { playSound('click'); setCurrentSectionIdx(idx); setCurrentQuestionIdx(0); }} className={`flex items-center gap-3 sm:gap-4 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all text-left ${isActive ? 'bg-white/15 border border-white/20 shadow-md' : 'hover:bg-white/5 border border-transparent'}`}>
+                                                <div className={`p-2 rounded-lg sm:rounded-xl ${isActive ? 'bg-cyan-500/20 text-cyan-300' : 'bg-black/20 text-white/50'}`}>
+                                                    <LucideIcon name={section.icon} className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                </div>
+                                                <span className={`text-xs sm:text-sm leading-tight ${isActive ? 'text-white font-medium' : 'text-white/60'}`}>{section.title}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+
+                            <div className="glass-panel-card p-6 sm:p-8">
+                                <h3 className="text-lg sm:text-xl font-medium mb-4 sm:mb-6">{ui.quizProgress}</h3>
+                                <div className="space-y-3 sm:space-y-4">
+                                    <div className="flex justify-between items-center text-xs sm:text-sm">
+                                        <span className="text-white/60">{ui.questionsDone}:</span>
+                                        <span className="font-mono text-sm sm:text-base">{answeredCount} / {totalQuestions}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs sm:text-sm">
+                                        <span className="text-white/60">{ui.timeMode}:</span>
+                                        <span className="font-mono text-sm sm:text-base text-cyan-300">{mode === 'timed' ? formatTime(timeRemaining) : ui.zenMode}</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => { playSound('click'); setAppState('review'); }}
+                                        className="w-full mt-2 sm:mt-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl border border-white/20 bg-white/5 hover:bg-white/10 transition-colors text-xs sm:text-sm font-medium flex items-center justify-center gap-2"
+                                    >
+                                        <LucideIcon name="clipboard-list" className="w-4 h-4" />
+                                        {ui.reviewBtn || T.en.reviewBtn}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {exitModalJSX}
+                    {submitModalJSX}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

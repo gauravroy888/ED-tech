@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 4K Smartboard Viewport Fix -->
+    <script>
+      (function () {
+        var dpr = window.devicePixelRatio || 1;
+        var sw = window.screen.width * dpr;
+        if (sw >= 3840) {
+          var vp = document.querySelector('meta[name=viewport]');
+          if (vp) vp.setAttribute('content', 'width=1920, initial-scale=1.0');
+        }
+      })();
+    </script>
+    <title>Shadow Lab - Distance Calibration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@0.358.0/dist/umd/lucide.js"></script>
+    <!-- IFP Performance Optimizer: 4K pixel ratio cap, touch hardening, visibility API -->
+    <script src="perf_optimizer.js"></script>
+    <style>
+        body { 
+            margin: 0; overflow: hidden; touch-action: manipulation; 
+            background-color: #050714; color: #fff; 
+            font-family: system-ui, -apple-system, sans-serif; 
+        }
+
+        /* Animations */
+        @keyframes shake { 
+            0%, 100% { transform: translateX(0); } 
+            20%, 60% { transform: translateX(-6px); } 
+            40%, 80% { transform: translateX(6px); } 
+        }
+        .shake-err { animation: shake 0.4s ease-in-out; }
+
+        @keyframes pulseSuccess {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .pulse-success { animation: pulseSuccess 1s ease-out; border-color: #10B981 !important; }
+
+        /* Custom Range Sliders */
+        input[type=range] {
+            -webkit-appearance: none; width: 100%; background: transparent; 
+        }
+        input[type=range]:focus { outline: none; }
+        
+        /* Track */
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%; height: 8px; cursor: pointer;
+            background: rgba(255, 255, 255, 0.1); border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: all 0.2s ease;
+        }
+        input[type=range]:hover::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        /* Thumb */
+        input[type=range]::-webkit-slider-thumb {
+            height: 24px; width: 24px; border-radius: 50%;
+            background: #7C9BFF; cursor: pointer;
+            -webkit-appearance: none; margin-top: -9px;
+            box-shadow: 0 0 10px rgba(124, 155, 255, 0.5);
+            border: 2px solid #fff;
+            transition: transform 0.1s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:active {
+            transform: scale(1.2); background: #E27329; box-shadow: 0 0 15px rgba(226, 115, 41, 0.8);
+        }
+
+        /* Specific Thumb Colors */
+        #slider-light::-webkit-slider-thumb { background: #FCD34D; box-shadow: 0 0 15px rgba(252, 211, 77, 0.6); }
+        #slider-object::-webkit-slider-thumb { background: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); }
+
+        /* Grid Backgrounds */
+        .bench-grid {
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .screen-grid {
+            background-image: 
+                linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+            background-size: 15px 15px;
+            background-position: center center;
+        }
+
+        /* Screen Elements */
+        .screen-container { perspective: 800px; }
+        
+        .shadow-element {
+            transform-origin: center center;
+            will-change: transform, filter;
+        }
+    </style>
+</head>
+<body class="min-h-screen w-full bg-[#050714] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#1C2C5E] via-[#0A0F24] to-[#04060E] overflow-hidden flex flex-col select-none relative">
+
+    <!-- Background Layers -->
+    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHBhdGggZD0iTTAgMGg0MHY0MEgweiIgZmlsbD0ibm9uZSIvPjxwYXRoIGQ9Ik0wIDM5LjVoNDBWMGgtMXYzOWgtMzl6IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuMSkiLz48L3N2Zz4=')] bg-repeat"></div>
+    <div class="absolute inset-0 pointer-events-none opacity-40 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iNDAwIj4KICA8Y2lyY2xlIGN4PSI1MCIgY3k9IjUwIiByPSIxIiBmaWxsPSIjZmZmIiAvPgogIDxjaXJjbGUgY3g9IjI1MCIgY3k9IjE1MCIgcj0iMSIgZmlsbD0iI2ZmZiIgLz4KICA8Y2lyY2xlIGN4PSIzNTAiIGN5PSIzMDAiIHI9IjEiIGZpbGw9IiNmZmYiIC8+Cjwvc3ZnPg==')] bg-repeat"></div>
+
+    <!-- Header -->
+    <header class="w-full p-4 sm:p-6 flex justify-between items-center z-30 pointer-events-none">
+        <div class="flex items-center gap-3 pointer-events-auto">
+            <!-- Back Button -->
+            <button onclick="goBack()" class="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-[14px] text-white/80 hover:text-white text-sm font-bold tracking-widest transition-all shadow-inner cursor-pointer h-[52px]">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                Back
+            </button>
+            <!-- Shadow Lab Pill -->
+            <div class="bg-white/10 backdrop-blur-xl border border-white/20 rounded-[24px] px-4 py-3 shadow-lg flex items-center gap-3">
+                <div class="w-10 h-10 rounded-[12px] bg-[#7C9BFF]/20 border border-[#7C9BFF]/50 items-center justify-center shadow-[0_0_15px_rgba(124,155,255,0.3)] hidden sm:flex">
+                    <i data-lucide="sun" class="w-6 h-6 text-[#7C9BFF]"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-widest text-white leading-none drop-shadow-md" data-i18n="gameTitle">SHADOW LAB</h1>
+                    <p class="text-xs text-white/60 font-mono mt-1 uppercase tracking-widest"><span data-i18n="calibration">Calibration</span> v2.0</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex gap-2 sm:gap-4 pointer-events-auto">
+            <!-- Timer Toggle -->
+            <button onclick="toggleTimer()" id="timer-btn" class="flex items-center justify-center gap-1.5 px-4 h-12 rounded-full text-xs font-bold transition-all bg-white/10 text-white/50 hover:bg-white/20 border border-white/20 shadow-inner cursor-pointer min-w-[100px]">
+                <i data-lucide="timer" class="w-4 h-4"></i>
+                <span id="timer-text" data-i18n="timerOff">Timer: OFF</span>
+            </button>
+
+            <!-- Language Toggle -->
+            <div class="flex items-center bg-black/40 border border-white/20 rounded-full p-1 shadow-inner h-12 px-1">
+                <button onclick="setLang('en')" id="btn-en" class="px-3 py-1.5 rounded-full text-xs font-bold transition-all bg-[#E27329] text-white shadow-md">EN</button>
+                <button onclick="setLang('hi')" id="btn-hi" class="px-3 py-1.5 rounded-full text-xs font-bold transition-all text-[#A0A3B5] hover:text-white">HI</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 w-full max-w-6xl mx-auto flex flex-col p-4 z-20 gap-4 overflow-hidden h-full">
+        
+        <!-- Mission Board -->
+        <div class="w-full bg-[#1e293b]/80 backdrop-blur-xl border border-[#334155] rounded-[24px] p-5 flex flex-col sm:flex-row items-center justify-between shadow-lg">
+            <div class="flex items-center gap-4 mb-4 sm:mb-0">
+                <div class="w-12 h-12 rounded-full bg-[#E27329]/20 flex items-center justify-center border border-[#E27329]/50">
+                    <i data-lucide="target" class="w-6 h-6 text-[#E27329]"></i>
+                </div>
+                <div>
+                    <h2 class="text-sm font-bold tracking-widest text-[#A0A3B5] uppercase mb-1"><span data-i18n="mission">Mission</span> <span id="mission-level" class="text-white">1/5</span></h2>
+                    <p id="mission-prompt" class="text-lg font-medium text-white">Create a sharp, normal sized shadow.</p>
+                </div>
+            </div>
+            <button onclick="verifyCalculation()" id="verify-btn" class="px-8 py-3 bg-[#7C9BFF] hover:bg-[#5A7EE0] text-[#050714] font-bold tracking-widest rounded-[16px] transition-all shadow-[0_0_20px_rgba(124,155,255,0.4)] active:scale-95 flex items-center gap-2 w-full sm:w-auto justify-center cursor-pointer">
+                <i data-lucide="check-circle" class="w-5 h-5"></i>
+                <span data-i18n="verifyBtn">VERIFY SHADOW</span>
+            </button>
+        </div>
+
+        <!-- Visualization Split View -->
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+            
+            <!-- Left: Optical Bench (Side Profile) -->
+            <div class="flex-[2] bg-[#0A0F1A]/80 backdrop-blur-md border border-white/10 rounded-[24px] relative overflow-hidden flex flex-col bench-grid shadow-inner min-h-[250px]">
+                <div class="absolute top-4 left-6 z-20">
+                    <span class="text-xs font-bold tracking-widest uppercase text-white/40" data-i18n="benchView">Optical Bench View</span>
+                </div>
+                
+                <div class="flex-1 relative w-full h-full" id="bench-container">
+                    <!-- SVG Graphics for dynamic drawing -->
+                    <svg class="absolute inset-0 w-full h-full pointer-events-none" id="optical-svg">
+                        <defs>
+                            <radialGradient id="lightGlow" cx="50%" cy="50%" r="50%">
+                                <stop offset="0%" stop-color="rgba(252, 211, 77, 0.4)"/>
+                                <stop offset="100%" stop-color="rgba(252, 211, 77, 0)"/>
+                            </radialGradient>
+                            <linearGradient id="beamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <stop offset="0%" stop-color="rgba(252, 211, 77, 0.15)"/>
+                                <stop offset="100%" stop-color="rgba(252, 211, 77, 0.02)"/>
+                            </linearGradient>
+                        </defs>
+                        
+                        <!-- Light Beam -->
+                        <polygon id="svg-beam" fill="url(#beamGrad)" points="0,0 0,0 0,0 0,0"/>
+                        
+                        <!-- Umbra (Dark Shadow Cone) -->
+                        <polygon id="svg-umbra" fill="rgba(0,0,0,0.7)" points="0,0 0,0 0,0 0,0"/>
+                        
+                        <!-- Ruler Lines -->
+                        <line x1="0" y1="85%" x2="100%" y2="85%" stroke="rgba(255,255,255,0.1)" stroke-width="2"/>
+                    </svg>
+
+                    <!-- Bench Track -->
+                    <div class="absolute top-[85%] left-0 w-full h-[8px] bg-gradient-to-b from-[#1E293B] to-[#0F172A] border-y border-white/20 transform -translate-y-1/2"></div>
+                    <div class="absolute top-[85%] left-0 w-full h-full flex justify-between px-10 pt-2 opacity-30 pointer-events-none text-[10px] font-mono">
+                        <span>0cm</span><span>50cm</span><span>100cm</span>
+                    </div>
+
+                    <!-- Wall Structure -->
+                    <div class="absolute right-[5%] top-[10%] bottom-[15%] w-3 bg-[#E2E8F0] border border-[#94A3B8] rounded-sm shadow-[-5px_0_15px_rgba(0,0,0,0.8)] z-10 flex items-center justify-center">
+                        <div class="h-full w-[1px] bg-[#94A3B8]/50"></div>
+                    </div>
+
+                    <!-- Object Stand (Perfectly Centered) -->
+                    <div id="obj-stand" class="absolute top-0 bottom-0 transform -translate-x-1/2 z-20 w-12">
+                        <!-- Pole -->
+                        <div class="absolute top-[50%] left-1/2 transform -translate-x-1/2 w-2 h-[35%] bg-[#334155] border-x border-[#1E293B]"></div>
+                        <!-- Base -->
+                        <div class="absolute top-[85%] left-1/2 transform -translate-x-1/2 -translate-y-full w-12 h-3 bg-[#475569] rounded-t-md border border-[#1E293B]"></div>
+                        <!-- The Object -->
+                        <div class="absolute top-[50%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-10 h-10 bg-[#38BDF8] rounded-md shadow-lg border border-white/20 flex items-center justify-center overflow-hidden">
+                            <div class="w-full h-1/2 bg-white/20 absolute top-0"></div>
+                        </div>
+                    </div>
+
+                    <!-- Light Source Stand (Perfectly Centered) -->
+                    <div id="light-stand" class="absolute top-0 bottom-0 transform -translate-x-1/2 z-20 w-16">
+                        <!-- Pole -->
+                        <div class="absolute top-[50%] left-1/2 transform -translate-x-1/2 w-3 h-[35%] bg-[#334155] border-x border-[#1E293B]"></div>
+                        <!-- Base -->
+                        <div class="absolute top-[85%] left-1/2 transform -translate-x-1/2 -translate-y-full w-14 h-4 bg-[#475569] rounded-t-md border border-[#1E293B]"></div>
+                        <!-- Bulb -->
+                        <div class="absolute top-[50%] left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
+                            <div class="absolute ml-8 w-4 h-6 bg-[#475569] rounded-r-md z-0"></div>
+                            <div id="light-bulb" class="w-12 h-12 bg-[#FCD34D] rounded-full shadow-[0_0_30px_rgba(252,211,77,0.8)] flex items-center justify-center z-10 border-2 border-white">
+                                <!-- Rotated by 90deg to point perfectly right -->
+                                <i data-lucide="flashlight" class="w-3/4 h-3/4 text-[#92400E] rotate-90"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Right: Screen View (Front Camera) -->
+            <div class="flex-1 bg-[#F8FAFC] rounded-[24px] border border-[#CBD5E1] shadow-[0_10px_30px_rgba(0,0,0,0.5)] relative overflow-hidden flex items-center justify-center screen-grid min-h-[250px] screen-container">
+                
+                <div class="absolute top-4 left-6 z-20">
+                    <span class="text-xs font-bold tracking-widest uppercase text-[#475569]" data-i18n="screenView">Screen View</span>
+                </div>
+
+                <div class="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,1)_0%,rgba(226,232,240,1)_100%)] z-0"></div>
+                
+                <!-- The Projected Shadow -->
+                <div id="projected-shadow" class="shadow-element w-[60px] h-[60px] bg-black/80 rounded-md z-10 relative"></div>
+            </div>
+        </div>
+
+        <!-- Controls Area -->
+        <div class="w-full bg-[#1e293b]/60 backdrop-blur-md border border-white/10 rounded-[24px] p-6 shadow-lg flex flex-col sm:flex-row gap-8">
+            
+            <!-- Slider 1: Light Position -->
+            <div class="flex-1 flex flex-col gap-2">
+                <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-[#FCD34D]">
+                    <span data-i18n="lightPos">Light Source Pos</span>
+                    <span id="lbl-light-pos" class="font-mono bg-black/40 px-2 py-1 rounded">10 cm</span>
+                </div>
+                <div class="relative w-full h-8 flex items-center">
+                    <input type="range" id="slider-light" min="5" max="80" value="10" oninput="updatePhysics()">
+                </div>
+            </div>
+
+            <!-- Slider 2: Object Position -->
+            <div class="flex-1 flex flex-col gap-2">
+                <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-[#38BDF8]">
+                    <span data-i18n="objPos">Object Pos</span>
+                    <span id="lbl-obj-pos" class="font-mono bg-black/40 px-2 py-1 rounded">50 cm</span>
+                </div>
+                <div class="relative w-full h-8 flex items-center">
+                    <input type="range" id="slider-object" min="15" max="90" value="50" oninput="updatePhysics()">
+                </div>
+            </div>
+
+            <!-- Slider 3: Light Size (Sharpness) -->
+            <div class="flex-1 flex flex-col gap-2">
+                <div class="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-white/70">
+                    <span data-i18n="lightSize">Torch Size</span>
+                    <span id="lbl-light-size" class="font-mono bg-black/40 px-2 py-1 rounded">Small</span>
+                </div>
+                <div class="relative w-full h-8 flex items-center">
+                    <input type="range" id="slider-size" min="1" max="30" value="5" oninput="updatePhysics()">
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="absolute top-24 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-[16px] font-bold text-sm tracking-wide opacity-0 transition-all duration-300 pointer-events-none z-50 shadow-2xl border flex items-center gap-2 backdrop-blur-md">
+        <span id="toast-icon"></span>
+        <span id="toast-msg">Message</span>
+    </div>
+
+    <!-- Win Overlay -->
+    <div id="win-overlay" class="absolute inset-0 bg-black/90 backdrop-blur-xl z-50 hidden flex-col items-center justify-center p-6 text-center pointer-events-auto">
+        <div class="bg-white/10 p-10 rounded-[32px] border border-[#10B981]/50 shadow-[0_8px_32px_rgba(16,185,129,0.3)] max-w-sm w-full">
+            <div class="w-20 h-20 bg-[#10B981]/30 rounded-[20px] flex items-center justify-center mx-auto mb-6 border border-[#10B981] shadow-[0_0_30px_rgba(16,185,129,0.5)]">
+                <i data-lucide="award" class="w-12 h-12 text-white"></i>
+            </div>
+            <h2 class="text-4xl font-bold tracking-widest text-[#10B981] mb-2 drop-shadow-md" data-i18n="labCleared">LAB CLEARED!</h2>
+            <p class="text-white/70 text-sm mb-8 leading-relaxed font-medium" data-i18n="winMsg">You have mastered the physics of shadows, light, and distances.</p>
+            <button onclick="resetGame()" class="w-full py-4 bg-[#10B981] hover:bg-[#059669] text-white font-bold tracking-widest rounded-[16px] transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] active:scale-95 text-lg cursor-pointer">
+                <span data-i18n="playAgain">PLAY AGAIN</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Time Up Overlay -->
+    <div id="time-up-overlay" class="absolute inset-0 bg-black/90 backdrop-blur-xl z-50 hidden flex-col items-center justify-center p-6 text-center pointer-events-auto">
+        <div class="bg-white/10 p-10 rounded-[32px] border border-[#EF4444]/50 shadow-[0_8px_32px_rgba(239,68,68,0.3)] max-w-sm w-full">
+            <div class="w-20 h-20 bg-[#EF4444]/30 rounded-[20px] flex items-center justify-center mx-auto mb-6 border border-[#EF4444] shadow-[0_0_30px_rgba(239,68,68,0.5)]">
+                <i data-lucide="timer-off" class="w-12 h-12 text-white"></i>
+            </div>
+            <h2 class="text-4xl font-bold tracking-widest text-[#EF4444] mb-2 drop-shadow-md" data-i18n="timeUpTitle">TIME'S UP!</h2>
+            <p class="text-white/70 text-sm mb-8 leading-relaxed font-medium" data-i18n="timeUpMsg">You failed to calibrate the shadow in time.</p>
+            <button onclick="retryMission()" class="w-full py-4 bg-[#EF4444] hover:bg-[#DC2626] text-white font-bold tracking-widest rounded-[16px] transition-all shadow-[0_0_20px_rgba(239,68,68,0.4)] active:scale-95 text-lg cursor-pointer">
+                <span data-i18n="retryMission">RETRY MISSION</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- Translations ---
+        const translations = {
+            en: {
+                gameTitle: "SHADOW LAB",
+                calibration: "Calibration",
+                mission: "Mission",
+                verifyBtn: "VERIFY SHADOW",
+                benchView: "Optical Bench View",
+                screenView: "Screen View",
+                lightPos: "Light Source Pos",
+                objPos: "Object Pos",
+                lightSize: "Torch Size",
+                labCleared: "LAB CLEARED!",
+                winMsg: "You have mastered the physics of shadows, light, and distances.",
+                playAgain: "PLAY AGAIN",
+                sizeSmall: "Point",
+                sizeMed: "Medium",
+                sizeLarge: "Extended",
+                errNotAvailable: "Main menu not available.",
+                timerOff: "Timer: OFF",
+                timerOn: "Timer: ON",
+                timeUpTitle: "TIME'S UP!",
+                timeUpMsg: "You failed to calibrate the shadow in time.",
+                retryMission: "RETRY MISSION",
+                m1: "Create a sharp, normal sized shadow.",
+                m2: "Make the shadow HUGE! (At least 4x size)",
+                m3: "Make the shadow as small and sharp as possible.",
+                m4: "Create a highly blurred (soft) shadow.",
+                m5: "Create a HUGE but SHARP shadow."
+            },
+            hi: {
+                gameTitle: "शैडो लैब",
+                calibration: "कैलिब्रेशन",
+                mission: "मिशन",
+                verifyBtn: "छाया की जाँच करें",
+                benchView: "ऑप्टिकल बेंच दृश्य",
+                screenView: "स्क्रीन दृश्य",
+                lightPos: "प्रकाश स्रोत की स्थिति",
+                objPos: "वस्तु की स्थिति",
+                lightSize: "टॉर्च का आकार",
+                labCleared: "लैब साफ़!",
+                winMsg: "आपने छाया, प्रकाश और दूरी के भौतिकी में महारत हासिल कर ली है।",
+                playAgain: "फिर से खेलें",
+                sizeSmall: "बिंदु",
+                sizeMed: "मध्यम",
+                sizeLarge: "विस्तारित",
+                errNotAvailable: "मेन मेनू उपलब्ध नहीं है।",
+                timerOff: "टाइमर: बंद",
+                timerOn: "टाइमर: चालू",
+                timeUpTitle: "समय समाप्त!",
+                timeUpMsg: "आप समय पर छाया को कैलिब्रेट करने में विफल रहे।",
+                retryMission: "फिर से प्रयास करें",
+                m1: "एक तीक्ष्ण (sharp), सामान्य आकार की छाया बनाएं।",
+                m2: "छाया को बहुत बड़ा बनाएं! (कम से कम 4 गुना)",
+                m3: "छाया को जितना संभव हो उतना छोटा और तीक्ष्ण बनाएं।",
+                m4: "अत्यधिक धुंधली (soft) छाया बनाएं।",
+                m5: "एक बहुत बड़ी लेकिन तीक्ष्ण (sharp) छाया बनाएं।"
+            }
+        };
+
+        let currentLang = 'en';
+
+        function setLang(lang) {
+            currentLang = lang;
+            const dict = translations[lang];
+
+            document.getElementById('btn-en').className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${lang === 'en' ? 'bg-[#E27329] text-white shadow-md' : 'text-[#A0A3B5] hover:text-white'}`;
+            document.getElementById('btn-hi').className = `px-3 py-1.5 rounded-full text-xs font-bold transition-all ${lang === 'hi' ? 'bg-[#E27329] text-white shadow-md' : 'text-[#A0A3B5] hover:text-white'}`;
+
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (dict[key]) el.innerHTML = dict[key];
+            });
+
+            if (!isTimerOn) {
+                document.getElementById('timer-text').innerHTML = dict['timerOff'];
+            }
+
+            updateMissionText();
+            updatePhysics(); 
+            SoundEngine.click();
+        }
+
+        window.goBack = () => {
+            SoundEngine.click();
+            // If inside an iframe (launched from main app), close the overlay
+            if (window.parent && window.parent !== window) {
+                const overlay = window.parent.document.getElementById('app-overlay');
+                if (overlay) {
+                    overlay.classList.add('hidden');
+                    setTimeout(() => {
+                        const iframe = window.parent.document.getElementById('app-iframe');
+                        if (iframe) { iframe.src = ''; iframe.removeAttribute('src'); }
+                    }, 300);
+                    return;
+                }
+            }
+            // Fallback: go back in history
+            window.history.back();
+        };
+
+        // --- Audio Engine ---
+        const SoundEngine = {
+            ctx: null,
+            init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); if (this.ctx.state === 'suspended') this.ctx.resume(); },
+            play(freq, type, duration, vol, slideFreq = null) {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type; osc.connect(gain); gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                if (slideFreq) osc.frequency.exponentialRampToValueAtTime(slideFreq, this.ctx.currentTime + duration);
+                gain.gain.setValueAtTime(vol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                osc.start(); osc.stop(this.ctx.currentTime + duration);
+            },
+            click() { this.play(800, 'sine', 0.05, 0.05); },
+            slide() { this.play(300, 'triangle', 0.05, 0.02); },
+            success() { this.play(600, 'sine', 0.1, 0.1, 1200); setTimeout(()=>this.play(800, 'sine', 0.2, 0.1, 1600), 100); },
+            error() { this.play(150, 'sawtooth', 0.3, 0.1, 100); }
+        };
+
+        // --- DOM Elements ---
+        const sLight = document.getElementById('slider-light');
+        const sObject = document.getElementById('slider-object');
+        const sSize = document.getElementById('slider-size');
+        
+        const standLight = document.getElementById('light-stand');
+        const standObject = document.getElementById('obj-stand');
+        const lightBulb = document.getElementById('light-bulb');
+        const projectedShadow = document.getElementById('projected-shadow');
+        
+        const svgBeam = document.getElementById('svg-beam');
+        const svgUmbra = document.getElementById('svg-umbra');
+        
+        const toast = document.getElementById('toast');
+        const toastMsg = document.getElementById('toast-msg');
+        const toastIcon = document.getElementById('toast-icon');
+        const verifyBtn = document.getElementById('verify-btn');
+
+        // --- State Variables ---
+        let L_x = 10;
+        let O_x = 50;
+        let W_x = 95; 
+        let D_L = 5;  
+        let ObjHeight = 40; 
+        
+        let shadowRatio = 1;
+        let shadowBlur = 0;
+
+        let currentLevel = 0;
+
+        // Timer State
+        let isTimerOn = false;
+        let timeLeft = 30;
+        let timerInterval = null;
+
+        // --- Missions ---
+        const missions = [
+            { 
+                id: 'm1', 
+                check: (r, b) => r >= 1.5 && r <= 2.5 && b <= 5,
+                hintEn: "Move the object to the middle and keep the light point-sized.",
+                hintHi: "वस्तु को बीच में रखें और प्रकाश स्रोत को छोटा रखें।"
+            },
+            { 
+                id: 'm2', 
+                check: (r, b) => r >= 4.0,
+                hintEn: "Move the object very close to the light source!",
+                hintHi: "वस्तु को प्रकाश स्रोत के बहुत करीब ले जाएँ!"
+            },
+            { 
+                id: 'm3', 
+                check: (r, b) => r <= 1.3 && b <= 5,
+                hintEn: "Move the object very close to the wall (screen).",
+                hintHi: "वस्तु को दीवार (स्क्रीन) के बहुत करीब ले जाएँ।"
+            },
+            { 
+                id: 'm4', 
+                check: (r, b) => b >= 15,
+                hintEn: "Increase the light source size to 'Extended' and move light closer.",
+                hintHi: "प्रकाश स्रोत का आकार बढ़ाएं और प्रकाश को करीब लाएं।"
+            },
+            { 
+                id: 'm5', 
+                check: (r, b) => r >= 3.5 && b <= 4,
+                hintEn: "Make the light source a 'Point', and move object close to light.",
+                hintHi: "प्रकाश स्रोत को सबसे छोटा करें, और वस्तु को प्रकाश के पास ले जाएं।"
+            }
+        ];
+
+        // --- Timer Logic ---
+        window.toggleTimer = () => {
+            isTimerOn = !isTimerOn;
+            SoundEngine.click();
+            
+            const timerBtn = document.getElementById('timer-btn');
+            const timerText = document.getElementById('timer-text');
+            
+            if (isTimerOn) {
+                timerBtn.classList.add('bg-[#E27329]/20', 'border-[#E27329]/50');
+                timerBtn.classList.remove('bg-white/10', 'text-white/50', 'border-white/20');
+                startTimer();
+            } else {
+                timerBtn.classList.remove('bg-[#E27329]/20', 'border-[#E27329]/50', 'animate-pulse', 'text-red-500', 'text-[#E27329]');
+                timerBtn.classList.add('bg-white/10', 'text-white/50', 'border-white/20');
+                timerText.innerHTML = translations[currentLang]['timerOff'];
+                stopTimer();
+            }
+        };
+
+        function startTimer() {
+            stopTimer();
+            if (!isTimerOn) return;
+            
+            timeLeft = 30;
+            updateTimerUI();
+            
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimerUI();
+                
+                if (timeLeft <= 0) {
+                    stopTimer();
+                    triggerTimeUp();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function updateTimerUI() {
+            if (!isTimerOn) return;
+            const timerText = document.getElementById('timer-text');
+            const timerBtn = document.getElementById('timer-btn');
+            
+            timerText.innerHTML = `0:${timeLeft.toString().padStart(2, '0')}`;
+            
+            if (timeLeft <= 5) {
+                timerBtn.classList.add('animate-pulse', 'text-red-500');
+                timerBtn.classList.remove('text-[#E27329]', 'text-white');
+            } else {
+                timerBtn.classList.remove('animate-pulse', 'text-red-500');
+                timerBtn.classList.add('text-[#E27329]');
+            }
+        }
+
+        function triggerTimeUp() {
+            SoundEngine.error();
+            document.getElementById('time-up-overlay').classList.remove('hidden');
+            document.getElementById('time-up-overlay').classList.add('flex');
+        }
+
+        window.retryMission = () => {
+            SoundEngine.click();
+            document.getElementById('time-up-overlay').classList.add('hidden');
+            document.getElementById('time-up-overlay').classList.remove('flex');
+            startTimer(); 
+        };
+
+        function showToast(msg, isError = false) {
+            toastMsg.innerText = msg;
+            toast.className = `absolute top-24 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-[16px] font-bold text-sm tracking-wide transition-all duration-300 pointer-events-none z-50 shadow-2xl border flex items-center gap-2 backdrop-blur-xl ${isError ? 'bg-[#EF4444]/20 border-[#EF4444] text-[#FFB3B3]' : 'bg-[#E27329]/20 border-[#E27329] text-white'}`;
+            toastIcon.innerHTML = isError ? '<i data-lucide="alert-circle" class="w-5 h-5"></i>' : '<i data-lucide="check-circle" class="w-5 h-5"></i>';
+            lucide.createIcons();
+            toast.style.opacity = '1';
+            toast.style.transform = 'translate(-50%, 0) scale(1)';
+            setTimeout(() => { 
+                toast.style.opacity = '0'; 
+                toast.style.transform = 'translate(-50%, -10px) scale(0.95)';
+            }, 3000);
+        }
+
+        function updateMissionText() {
+            if(currentLevel >= missions.length) return;
+            document.getElementById('mission-level').innerText = `${currentLevel + 1}/${missions.length}`;
+            document.getElementById('mission-prompt').innerText = translations[currentLang][missions[currentLevel].id];
+        }
+
+        let physicsReqFrame = null;
+        // --- Core Physics & Drawing ---
+        function updatePhysics() {
+            if (!physicsReqFrame) {
+                physicsReqFrame = requestAnimationFrame(() => {
+                    performPhysicsUpdate();
+                    physicsReqFrame = null;
+                });
+            }
+        }
+
+        function performPhysicsUpdate() {
+            SoundEngine.init();
+            
+            // Read values
+            let newLx = parseInt(sLight.value);
+            let newOx = parseInt(sObject.value);
+            D_L = parseInt(sSize.value);
+
+            // Collision Constraints
+            if (newOx <= newLx + 5) {
+                if (e && e.target.id === 'slider-light') {
+                    // Pushing object with light
+                    newOx = newLx + 5;
+                    if(newOx > 90) { newOx = 90; newLx = 85; }
+                    sObject.value = newOx;
+                } else {
+                    // Stopping object against light
+                    newOx = newLx + 5;
+                    sObject.value = newOx;
+                }
+            }
+            
+            L_x = newLx;
+            O_x = newOx;
+
+            // Math: Ratio and Blur
+            let d_light_obj = O_x - L_x;
+            let d_light_wall = W_x - L_x;
+            let d_obj_wall = W_x - O_x;
+            
+            shadowRatio = d_light_wall / d_light_obj;
+            // Cap visual scale to prevent DOM explosion
+            let visualScale = Math.min(Math.max(shadowRatio, 1), 6); 
+
+            // Blur formula: LightSize * (Dist Object to Wall / Dist Light to Object)
+            shadowBlur = (D_L * 0.8) * (d_obj_wall / d_light_obj);
+            let visualBlur = Math.min(shadowBlur, 40);
+
+            // Update Labels
+            document.getElementById('lbl-light-pos').innerText = `${L_x} cm`;
+            document.getElementById('lbl-obj-pos').innerText = `${O_x} cm`;
+            
+            let sizeTextKey = 'sizeSmall';
+            if(D_L > 10) sizeTextKey = 'sizeMed';
+            if(D_L > 20) sizeTextKey = 'sizeLarge';
+            document.getElementById('lbl-light-size').innerText = translations[currentLang][sizeTextKey];
+
+            // Update UI Positions (Side Profile)
+            standLight.style.left = `${L_x}%`;
+            standObject.style.left = `${O_x}%`;
+            
+            // Visual size of the lightbulb graphic (Base size increased by ~30% and scales up)
+            let bulbVisualSize = 33 + (D_L * 2);
+            lightBulb.style.width = `${bulbVisualSize}px`;
+            lightBulb.style.height = `${bulbVisualSize}px`;
+
+            // Update Screen Shadow
+            projectedShadow.style.transform = `scale(${visualScale})`;
+            projectedShadow.style.filter = `blur(${visualBlur}px)`;
+
+            // Draw SVG Rays
+            drawOpticalRays();
+            
+            // Audio tick
+            if (Math.random() > 0.7) SoundEngine.slide();
+        }
+
+        function drawOpticalRays() {
+            const container = document.getElementById('bench-container');
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            
+            // Map percentages to pixels
+            const pxL = (L_x / 100) * w;
+            const pxO = (O_x / 100) * w;
+            const pxW = (W_x / 100) * w;
+
+            // Y centers - Updated to exactly 50% to match the centered HTML elements
+            const yCenter = h * 0.5; 
+            const objH = 40; 
+            const yObjTop = yCenter - (objH/2);
+            const yObjBot = yCenter + (objH/2);
+
+            // Calculate shadow cone edges on the wall using similar triangles
+            const ratio = (pxW - pxL) / (pxO - pxL);
+            const shadowH = objH * ratio;
+            const yShadowTop = yCenter - (shadowH/2);
+            const yShadowBot = yCenter + (shadowH/2);
+
+            // Draw Umbra
+            svgUmbra.setAttribute('points', `
+                ${pxO},${yObjTop} 
+                ${pxW},${yShadowTop} 
+                ${pxW},${yShadowBot} 
+                ${pxO},${yObjBot}
+            `);
+
+            // Draw Light Beam
+            const lightSpread = yCenter * 1.8; 
+            svgBeam.setAttribute('points', `
+                ${pxL},${yCenter} 
+                ${pxW},${yCenter - lightSpread} 
+                ${pxW},${yCenter + lightSpread}
+            `);
+        }
+
+        // --- Game Flow ---
+        function verifyCalculation() {
+            SoundEngine.init();
+            verifyBtn.classList.add('scale-95');
+            setTimeout(() => verifyBtn.classList.remove('scale-95'), 100);
+
+            const currentM = missions[currentLevel];
+            
+            // Check condition
+            if (currentM.check(shadowRatio, shadowBlur)) {
+                // Success!
+                stopTimer(); // Pause timer while validating
+                SoundEngine.success();
+                verifyBtn.classList.add('pulse-success');
+                
+                let successTxt = currentLang === 'en' ? "Calculation Correct!" : "गणना सही है!";
+                showToast(successTxt);
+                
+                setTimeout(() => {
+                    verifyBtn.classList.remove('pulse-success');
+                    currentLevel++;
+                    if(currentLevel >= missions.length) {
+                        document.getElementById('win-overlay').classList.remove('hidden');
+                        document.getElementById('win-overlay').classList.add('flex');
+                    } else {
+                        updateMissionText();
+                        startTimer(); // Restart timer for next mission
+                    }
+                }, 1500);
+
+            } else {
+                // Failed
+                SoundEngine.error();
+                document.body.classList.add('shake-err');
+                setTimeout(() => document.body.classList.remove('shake-err'), 400);
+                
+                let hintTxt = currentLang === 'en' ? currentM.hintEn : currentM.hintHi;
+                showToast(`Hint: ${hintTxt}`, true);
+            }
+        }
+
+        window.resetGame = () => {
+            currentLevel = 0;
+            document.getElementById('win-overlay').classList.add('hidden');
+            document.getElementById('win-overlay').classList.remove('flex');
+            
+            sLight.value = 10;
+            sObject.value = 50;
+            sSize.value = 5;
+            updatePhysics();
+            updateMissionText();
+            startTimer();
+        };
+
+        // Init
+        window.addEventListener('resize', drawOpticalRays);
+        
+        // Pass event to collision logic
+        sLight.addEventListener('input', (e) => window.e = e);
+        sObject.addEventListener('input', (e) => window.e = e);
+        
+        lucide.createIcons();
+        setLang('en');
+        
+        // Setup initial delay to allow container to render sizes before drawing SVG
+        setTimeout(updatePhysics, 100);
+
+    </script>
+</body>
+</html>

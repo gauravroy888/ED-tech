@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 4K Smartboard Viewport Fix: lock to 1920px logical width on high-DPR displays -->
+  <script>
+    (function () {
+      var dpr = window.devicePixelRatio || 1;
+      var sw = window.screen.width * dpr;
+      if (sw >= 3840) {
+        var vp = document.querySelector('meta[name=viewport]');
+        if (vp) vp.setAttribute('content', 'width=1920, initial-scale=1.0');
+      }
+    })();
+  </script>
+  <title>Chapter 11: Light, Shadows and Reflections</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React & ReactDOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel for in-browser JSX compilation -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="perf_optimizer.js"></script>
+</head>
+
+<body class="bg-slate-950 m-0 p-0 overflow-hidden font-sans">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    const playClickSound = () => {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        // High-tech minimal tick sound
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1200, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.05);
+
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.15, ctx.currentTime + 0.005);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + 0.06);
+      } catch (e) { }
+    };
+
+    // --- SVG ICONS ---
+    const Icon = ({ path, size = 24, className = "" }) => (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className={className} dangerouslySetInnerHTML={{ __html: path }} />
+    );
+
+    const Sun = (p) => <Icon {...p} path='<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>' />;
+    const Flame = (p) => <Icon {...p} path='<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>' />;
+    const Lightbulb = (p) => <Icon {...p} path='<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.9 1.2 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>' />;
+    const Moon = (p) => <Icon {...p} path='<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>' />;
+    const MoveRight = (p) => <Icon {...p} path='<path d="M18 8L22 12L18 16"/><path d="M2 12H22"/>' />;
+    const Ban = (p) => <Icon {...p} path='<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>' />;
+    const Box = (p) => <Icon {...p} path='<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>' />;
+    const Square = (p) => <Icon {...p} path='<rect width="18" height="18" x="3" y="3" rx="2"/>' />;
+    const ImageIcon = (p) => <Icon {...p} path='<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>' />;
+    const Camera = (p) => <Icon {...p} path='<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>' />;
+    const ChevronLeft = (p) => <Icon {...p} path='<path d="m15 18-6-6 6-6"/>' />;
+    const ChevronRight = (p) => <Icon {...p} path='<path d="m9 18 6-6-6-6"/>' />;
+    const Maximize = (p) => <Icon {...p} path='<path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>' />;
+    const FlipHorizontal = (p) => <Icon {...p} path='<path d="M8 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><path d="M12 20v2"/><path d="M12 14v2"/><path d="M12 8v2"/><path d="M12 2v2"/>' />;
+
+    // --- CHAPTER DATA ---
+    const CHAPTER_DATA = {
+      en: [
+        {
+          id: "11.1",
+          title: "SOURCES OF LIGHT",
+          description: "Section 11.1: Sources of Light. Explore different types of light. Luminous objects (Sun, Bulb) emit their own light. Non-luminous objects (Moon) reflect light.",
+          audioSrc: "assets/audio_11_1.mp3",
+          fullText: "The Sun gives out or emits its own light and is the main source of natural light on the Earth. Stars, lightning, natural fire, and certain animals also emit their own light. Objects that emit their own light are called luminous objects.\n\nIn ancient times, humans learnt to create fire — the earliest form of artificial lighting. With the invention of electricity, most lighting needs are now met by electric sources like bulbs and LEDs.\n\nObjects that do not emit their own light are called non-luminous objects. The Moon is a non-luminous object. It does not emit its own light. It just reflects the light emitted by the Sun that falls on it.",
+          subtopics: [
+            { title: "Natural Sources", subtitle: "(Sun, Stars)", icon: Sun },
+            { title: "Early Artificial", subtitle: "(Fire)", icon: Flame },
+            { title: "Electric Lighting", subtitle: "(Bulbs)", icon: Lightbulb },
+            { title: "Non-Luminous", subtitle: "(Moon)", icon: Moon }
+          ]
+        },
+        {
+          id: "11.2",
+          title: "LIGHT TRAVELS IN A STRAIGHT LINE",
+          description: "Section 11.2: Light travels in a straight line. If we place cardboards with aligned holes, light passes through. If one cardboard is moved, the path is blocked.",
+          audioSrc: "assets/audio_11_2.mp3",
+          fullText: "When you try to look at a candle flame through a straight pipe, you can easily see the light. However, if you bend the pipe, you can no longer see the candle flame!\n\nSimilarly, if we place three matchboxes with holes perfectly aligned in a straight line, light from a torch passes straight through all of them to create a bright spot on a screen. But if we move even one matchbox slightly out of line, the light spot disappears.\n\nThese experiments clearly prove a fundamental rule of nature: Light always travels in a straight line.",
+          subtopics: [
+            { title: "Straight Path", subtitle: "(Holes Aligned)", icon: MoveRight },
+            { title: "Bent Path", subtitle: "(Cardboard Moved)", icon: Ban }
+          ]
+        },
+        {
+          id: "11.3",
+          title: "TRANSPARENT, TRANSLUCENT, OPAQUE",
+          description: "Section 11.3: Materials interact with light differently. Transparent lets all light pass, translucent diffuses it, and opaque blocks it completely.",
+          audioSrc: "assets/audio_11_3.mp3",
+          fullText: "Materials interact with light in three different ways:\n\n1. Transparent: Materials like clear glass and air allow light to pass completely through them, so we can see objects clearly through them.\n\n2. Translucent: Materials like frosted glass or tracing paper allow only some light to pass partially through them. We can see through them, but not clearly.\n\n3. Opaque: Materials like wood, metal, or cardboard block light completely. Light does not pass through opaque materials at all.",
+          subtopics: [
+            { title: "Transparent", subtitle: "(Clear Glass)", icon: Square },
+            { title: "Translucent", subtitle: "(Frosted Glass)", icon: ImageIcon },
+            { title: "Opaque", subtitle: "(Solid Display)", icon: Box }
+          ]
+        },
+        {
+          id: "11.4",
+          title: "SHADOW FORMATION",
+          description: "Section 11.4: Shadows form when an opaque object blocks light. The size of the shadow changes based on the object's distance from the light source.",
+          audioSrc: "assets/audio_11_4.mp3",
+          fullText: "A shadow is formed when an opaque object comes in the path of light, blocking it from falling onto a screen (like a floor or wall). To observe a shadow, we need three things: a source of light, an opaque object, and a screen.\n\nThe shape, size, and sharpness of the shadow depend on the position of the object relative to the light source. If you move an object very close to the light source, it blocks more rays, creating a very large shadow! If you move it far away, the shadow becomes much smaller.",
+          subtopics: [
+            { title: "Object Close", subtitle: "(Large Shadow)", icon: Maximize },
+            { title: "Object Far", subtitle: "(Small Shadow)", icon: Square }
+          ]
+        },
+        {
+          id: "11.5",
+          title: "REFLECTION & MIRRORS",
+          description: "Section 11.5 & 11.6: A mirror changes the direction of light. Images formed are erect, same size, but laterally inverted (left appears right).",
+          audioSrc: "assets/audio_11_5.mp3",
+          fullText: "A shiny surface or a mirror changes the direction of light that falls upon it. This change in direction of light by a mirror is called the reflection of light.\n\nWhen you look into a plane mirror, you see an image that is exactly the same size as you, and it is erect (upright). However, you will notice that your left hand appears as the right hand in the image, and vice-versa. This type of perceived left-right reversal is called lateral inversion.",
+          subtopics: [
+            { title: "Plane Mirror", subtitle: "(Virtual Image)", icon: Square },
+            { title: "Lateral Inversion", subtitle: "(Left-Right Flip)", icon: FlipHorizontal }
+          ]
+        },
+        {
+          id: "11.7",
+          title: "PINHOLE CAMERA",
+          description: "Section 11.7: Light rays passing through a tiny hole cross over, creating an inverted (upside down) image on the screen opposite the hole.",
+          audioSrc: "assets/audio_11_7.mp3",
+          fullText: "A pinhole camera is a simple device in which light rays from an object pass through a tiny hole and form an image on a translucent screen on the opposite side inside a dark box.\n\nBecause light travels in straight lines, the light rays from the top of the object travel downwards through the hole, and rays from the bottom travel upwards. This crossing of rays means that the image formed by a pinhole camera is always inverted (upside down)!",
+          subtopics: [
+            { title: "Inverted Image", subtitle: "(Pinhole Effect)", icon: Camera }
+          ]
+        }
+      ],
+      hi: [
+        {
+          id: "11.1",
+          title: "प्रकाश के स्रोत",
+          description: "धारा 11.1: प्रकाश के स्रोत। विभिन्न प्रकार के प्रकाश का अन्वेषण करें। दीप्त वस्तुएं (सूर्य, बल्ब) अपना प्रकाश उत्सर्जित करती हैं। अदीप्त वस्तुएं (चंद्रमा) प्रकाश को परावर्तित करती हैं।",
+          audioSrc: "assets/audio_11_1_hi.mp3",
+          fullText: "सूर्य अपना स्वयं का प्रकाश उत्सर्जित करता है और पृथ्वी पर प्राकृतिक प्रकाश का मुख्य स्रोत है। तारे, बिजली, प्राकृतिक अग्नि और कुछ जानवर भी अपना प्रकाश उत्सर्जित करते हैं। ऐसी वस्तुएं जो अपना स्वयं का प्रकाश उत्सर्जित करती हैं, दीप्त वस्तुएं कहलाती हैं।\n\nप्राचीन काल में, इंसानों ने आग जलाना सीखा — जो कृत्रिम प्रकाश का सबसे प्रारंभिक रूप है। बिजली के आविष्कार के साथ, अधिकांश प्रकाश व्यवस्था की आवश्यकताएं अब बल्ब और एलईडी जैसे विद्युत स्रोतों से पूरी होती हैं।\n\nजो वस्तुएं अपना स्वयं का प्रकाश उत्सर्जित नहीं करती हैं, उन्हें अदीप्त वस्तुएं कहा जाता है। चंद्रमा एक अदीप्त वस्तु है। यह अपना स्वयं का प्रकाश उत्सर्जित नहीं करता है। यह केवल सूर्य द्वारा उत्सर्जित प्रकाश को परावर्तित करता है जो इस पर पड़ता है।",
+          subtopics: [
+            { title: "प्राकृतिक स्रोत", subtitle: "(सूर्य, तारे)", icon: Sun },
+            { title: "प्रारंभिक कृत्रिम", subtitle: "(आग)", icon: Flame },
+            { title: "विद्युत प्रकाश", subtitle: "(बल्ब)", icon: Lightbulb },
+            { title: "अदीप्त", subtitle: "(चंद्रमा)", icon: Moon }
+          ]
+        },
+        {
+          id: "11.2",
+          title: "प्रकाश सीधी रेखा में गमन करता है",
+          description: "धारा 11.2: प्रकाश सीधी रेखा में गमन करता है। यदि हम एक सीध में छेद वाले कार्डबोर्ड रखते हैं, तो प्रकाश गुजरता है। यदि एक कार्डबोर्ड को हटा दिया जाए, तो मार्ग अवरुद्ध हो जाता है।",
+          audioSrc: "assets/audio_11_2_hi.mp3",
+          fullText: "जब आप एक सीधी पाइप के माध्यम से मोमबत्ती की लौ को देखने की कोशिश करते हैं, तो आप आसानी से प्रकाश देख सकते हैं। हालांकि, यदि आप पाइप को मोड़ते हैं, तो आप मोमबत्ती की लौ को नहीं देख पाएंगे!\n\nइसी तरह, यदि हम तीन माचिस की डिब्बियों को बिल्कुल एक सीधी रेखा में स्थित छेदों के साथ रखते हैं, तो टॉर्च का प्रकाश उन सभी से होते हुए एक स्क्रीन पर एक चमकीला बिंदु बनाता है। लेकिन यदि हम एक माचिस की डिब्बी को भी थोड़ा सा लाइन से हटा दें, तो प्रकाश का बिंदु गायब हो जाता है।\n\nये प्रयोग स्पष्ट रूप से प्रकृति के एक मौलिक नियम को सिद्ध करते हैं: प्रकाश हमेशा एक सीधी रेखा में गमन करता है।",
+          subtopics: [
+            { title: "सीधा रास्ता", subtitle: "(संरेखित छेद)", icon: MoveRight },
+            { title: "मुड़ा हुआ रास्ता", subtitle: "(कार्डबोर्ड हटा दिया गया)", icon: Ban }
+          ]
+        },
+        {
+          id: "11.3",
+          title: "पारदर्शी, पारभासी, अपारदर्शी",
+          description: "धारा 11.3: सामग्री प्रकाश के साथ अलग तरह से क्रिया करती है। पारदर्शी सामग्री प्रकाश को पूरी तरह से गुजरने देती है, पारभासी उसे फैला देती है, और अपारदर्शी उसे पूरी तरह से रोक देती है।",
+          audioSrc: "assets/audio_11_3_hi.mp3",
+          fullText: "सामग्री प्रकाश के साथ तीन अलग-अलग तरीकों से क्रिया करती है:\n\n1. पारदर्शी: साफ कांच और हवा जैसी सामग्री प्रकाश को पूरी तरह से उनके माध्यम से गुजरने देती है, ताकि हम उनके माध्यम से वस्तुओं को स्पष्ट रूप से देख सकें।\n\n2. पारभासी: फ्रॉस्टेड कांच या ट्रेसिंग पेपर जैसी सामग्री प्रकाश के केवल आंशिक हिस्से को ही उनके माध्यम से गुजरने देती है। हम उनके माध्यम से देख सकते हैं, लेकिन स्पष्ट रूप से नहीं।\n\n3. अपारदर्शी: लकड़ी, धातु या कार्डबोर्ड जैसी सामग्री प्रकाश को पूरी तरह से रोक देती है। अपारदर्शी सामग्री से प्रकाश बिल्कुल भी नहीं गुजरता है।",
+          subtopics: [
+            { title: "पारदर्शी", subtitle: "(साफ कांच)", icon: Square },
+            { title: "पारभासी", subtitle: "(फ्रॉस्टेड कांच)", icon: ImageIcon },
+            { title: "अपारदर्शी", subtitle: "(ठोस प्रदर्शन)", icon: Box }
+          ]
+        },
+        {
+          id: "11.4",
+          title: "छाया निर्माण",
+          description: "धारा 11.4: छाया तब बनती है जब कोई अपारदर्शी वस्तु प्रकाश के मार्ग को रोक लेती है। छाया का आकार प्रकाश स्रोत से वस्तु की दूरी के आधार पर बदलता है।",
+          audioSrc: "assets/audio_11_4_hi.mp3",
+          fullText: "एक छाया तब बनती है जब कोई अपारदर्शी वस्तु प्रकाश के मार्ग में आती है, और उसे स्क्रीन (जैसे फर्श या दीवार) पर पड़ने से रोकती है। छाया देखने के लिए, हमें तीन चीजों की आवश्यकता होती है: प्रकाश का स्रोत, एक अपारदर्शी वस्तु, और एक स्क्रीन।\n\nछाया का आकार, आकृति और स्पष्टता प्रकाश स्रोत के संबंध में वस्तु की स्थिति पर निर्भर करती है। यदि आप किसी वस्तु को प्रकाश स्रोत के बहुत करीब ले जाते हैं, तो यह अधिक किरणों को रोकता है, जिससे एक बहुत बड़ी छाया बनती है! यदि आप इसे दूर ले जाते हैं, तो छाया का आकार काफी छोटा हो जाता है।",
+          subtopics: [
+            { title: "करीब की वस्तु", subtitle: "(बड़ी छाया)", icon: Maximize },
+            { title: "दूर की वस्तु", subtitle: "(छोटी छाया)", icon: Square }
+          ]
+        },
+        {
+          id: "11.5",
+          title: "परावर्तन और दर्पण",
+          description: "धारा 11.5 और 11.6: एक दर्पण प्रकाश की दिशा बदलता है। बनने वाले चित्र सीधे, समान आकार के होते हैं, लेकिन पार्श्व रूप से उल्टे (बायां दायां दिखाई देता है) होते हैं।",
+          audioSrc: "assets/audio_11_5_hi.mp3",
+          fullText: "एक चमकदार सतह या दर्पण अपने ऊपर पड़ने वाले प्रकाश की दिशा को बदल देता है। दर्पण द्वारा प्रकाश की दिशा में इस परिवर्तन को प्रकाश का परावर्तन कहा जाता है।\n\nजब आप एक समतल दर्पण में देखते हैं, तो आप एक ऐसा चित्र देखते हैं जो बिल्कुल आपके आकार का होता है, और यह सीधा होता है। हालांकि, आप देखेंगे कि आपका बायां हाथ चित्र में दायां हाथ के रूप में दिखाई देता है, और इसके विपरीत। इस प्रकार के बाएँ-दाएँ उलटाव को पार्श्व व्युत्क्रमण कहा जाता है।",
+          subtopics: [
+            { title: "समतल दर्पण", subtitle: "(आभासी चित्र)", icon: Square },
+            { title: "पार्श्व व्युत्क्रमण", subtitle: "(बाएँ-दाएँ फ्लिप)", icon: FlipHorizontal }
+          ]
+        },
+        {
+          id: "11.7",
+          title: "पिनहोल कैमरा",
+          description: "धारा 11.7: एक छोटे से छेद से गुजरने वाली प्रकाश की किरणें एक-दूसरे को पार कर जाती हैं, जिससे छेद के विपरीत स्क्रीन पर एक उल्टा चित्र बनता है।",
+          audioSrc: "assets/audio_11_7_hi.mp3",
+          fullText: "पिनहोल कैमरा एक साधारण उपकरण है जिसमें किसी वस्तु से प्रकाश की किरणें एक छोटे से छेद से गुजरती हैं और एक अंधेरे बॉक्स के अंदर विपरीत दिशा में स्थित पारभासी स्क्रीन पर एक चित्र बनाती हैं।\n\nचूंकि प्रकाश सीधी रेखाओं में गमन करता है, वस्तु के शीर्ष से प्रकाश की किरणें छेद से नीचे की ओर जाती हैं, और नीचे से किरणें ऊपर की ओर जाती हैं। किरणों के इस पार करने का अर्थ है कि पिनहोल कैमरे द्वारा बना चित्र हमेशा उल्टा (ऊपर से नीचे) होता है!",
+          subtopics: [
+            { title: "उल्टा चित्र", subtitle: "(पिनहोल प्रभाव)", icon: Camera }
+          ]
+        }
+      ]
+    };
+
+    const TopicAnimation = ({ id }) => {
+      // High-quality comic-book style graphics
+      if (id === "11.1") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+            @keyframes pulseLight { 0%, 100% { opacity: 0.8; } 50% { opacity: 1; transform: scale(1.05); } }
+            .bob { animation: bob 4s ease-in-out infinite; }
+            .glow-pulse { animation: pulseLight 2s ease-in-out infinite; transform-origin: center; }
+          `}</style>
+          <rect width="300" height="200" fill="#87CEEB" />
+          {/* Cloud */}
+          <path d="M40 80 Q40 60 60 60 Q70 40 90 40 Q110 40 120 60 Q140 60 140 80 Z" fill="#ffffff" opacity="0.8" className="bob" />
+          {/* Comic Sun (Luminous) */}
+          <g className="glow-pulse" transform="translate(60, 100)">
+            <circle cx="0" cy="0" r="40" fill="#FFD700" stroke="#FF8C00" strokeWidth="4" />
+            <path d="M-15 -10 Q-5 -20 5 -10" fill="none" stroke="#B8860B" strokeWidth="3" strokeLinecap="round" />
+            <path d="M15 -10 Q25 -20 35 -10" fill="none" stroke="#B8860B" strokeWidth="3" strokeLinecap="round" />
+            <circle cx="-5" cy="-5" r="4" fill="#000" />
+            <circle cx="25" cy="-5" r="4" fill="#000" />
+            <path d="M0 15 Q10 25 20 15" fill="none" stroke="#000" strokeWidth="3" strokeLinecap="round" />
+            {/* Rays */}
+            <line x1="0" y1="-50" x2="0" y2="-70" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+            <line x1="0" y1="50" x2="0" y2="70" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+            <line x1="-50" y1="0" x2="-70" y2="0" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+            <line x1="50" y1="0" x2="70" y2="0" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+            <line x1="-35" y1="-35" x2="-50" y2="-50" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+            <line x1="35" y1="-35" x2="50" y2="-50" stroke="#FFD700" strokeWidth="4" strokeLinecap="round" />
+          </g>
+          {/* Divider */}
+          <line x1="150" y1="0" x2="150" y2="200" stroke="#fff" strokeWidth="6" strokeDasharray="10 10" />
+          {/* Night Sky */}
+          <rect x="150" y="0" width="150" height="200" fill="#191970" />
+          {/* Stars */}
+          <circle cx="180" cy="40" r="2" fill="#fff" className="glow-pulse" />
+          <circle cx="250" cy="80" r="3" fill="#fff" className="glow-pulse" />
+          <circle cx="210" cy="150" r="1.5" fill="#fff" className="glow-pulse" />
+          {/* Comic Moon (Non-luminous) */}
+          <g transform="translate(230, 90)" className="bob">
+            <path d="M0 -30 A 30 30 0 1 0 0 30 A 20 20 0 1 1 0 -30" fill="#F0E68C" stroke="#BDB76B" strokeWidth="2" />
+            <circle cx="-10" cy="-5" r="3" fill="#BDB76B" opacity="0.5" />
+            <circle cx="-15" cy="10" r="5" fill="#BDB76B" opacity="0.5" />
+            <circle cx="-5" cy="15" r="2" fill="#BDB76B" opacity="0.5" />
+          </g>
+        </svg>
+      );
+
+      if (id === "11.2") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes fastBeam { 0% { stroke-dashoffset: 100; } 100% { stroke-dashoffset: 0; } }
+            .beam { stroke-dasharray: 20 10; animation: fastBeam 1s linear infinite; }
+          `}</style>
+          <rect width="300" height="200" fill="#FFEFD5" />
+          {/* Floor */}
+          <rect y="160" width="300" height="40" fill="#8B4513" />
+
+          {/* Flashlight Person */}
+          <path d="M40 160 L40 100 L20 100 L20 160 Z" fill="#2E8B57" stroke="#006400" strokeWidth="2" />
+          <circle cx="30" cy="80" r="20" fill="#FFDAB9" stroke="#8B4513" strokeWidth="2" />
+          <circle cx="35" cy="75" r="3" fill="#000" />
+          <path d="M30 65 Q35 60 40 65" fill="none" stroke="#8B4513" strokeWidth="2" />
+          {/* Arm holding flashlight */}
+          <path d="M30 110 L60 110" stroke="#FFDAB9" strokeWidth="8" strokeLinecap="round" />
+          <rect x="60" y="105" width="20" height="10" fill="#A9A9A9" stroke="#696969" strokeWidth="2" rx="2" />
+          <path d="M80 100 L90 100 L90 120 L80 120 Z" fill="#FFD700" stroke="#DAA520" strokeWidth="2" />
+
+          {/* Cardboards with holes */}
+          <rect x="130" y="70" width="10" height="90" fill="#D2B48C" stroke="#A0522D" strokeWidth="2" />
+          <circle cx="135" cy="110" r="8" fill="#FFEFD5" />
+          <rect x="190" y="70" width="10" height="90" fill="#D2B48C" stroke="#A0522D" strokeWidth="2" />
+          <circle cx="195" cy="110" r="8" fill="#FFEFD5" />
+          <rect x="250" y="50" width="10" height="90" fill="#D2B48C" stroke="#A0522D" strokeWidth="2" />
+          <circle cx="255" cy="90" r="8" fill="#FFEFD5" /> {/* Misaligned */}
+
+          {/* Light Beam */}
+          <line x1="90" y1="110" x2="250" y2="110" stroke="#FFFF00" strokeWidth="6" className="beam" opacity="0.8" />
+
+          {/* Exclamation point */}
+          <g transform="translate(240, 30)">
+            <circle cx="0" cy="0" r="15" fill="#FF4500" />
+            <text x="-3" y="5" fill="#fff" fontWeight="bold">!</text>
+          </g>
+        </svg>
+      );
+
+      if (id === "11.3") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes driveCar { 0% { transform: translateX(-80px); } 100% { transform: translateX(380px); } }
+            .car-drive { animation: driveCar 8s linear infinite; }
+            .wheel-spin { transform-origin: center; animation: spin 1s linear infinite; }
+            @keyframes spin { 100% { transform: rotate(360deg); } }
+          `}</style>
+
+          <rect width="300" height="200" fill="#fcfcfc" />
+
+          {/* Labels */}
+          <text x="50" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#000">Transparent</text>
+          <text x="150" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#000">Translucent</text>
+          <text x="250" y="30" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#000">Opaque</text>
+
+          {/* Material Backgrounds */}
+          <circle cx="50" cy="110" r="45" fill="#ffffff" stroke="#000" strokeWidth="2" />
+          <circle cx="150" cy="110" r="45" fill="#aab8c2" stroke="#000" strokeWidth="2" />
+          <circle cx="250" cy="110" r="45" fill="#6c8396" stroke="#000" strokeWidth="2" />
+
+          {/* Static Road (Behind lenses but visible through them) */}
+          <g>
+            {/* Transparent sees it fully */}
+            <g clipPath="url(#clip-transparent)"><rect x="-10" y="125" width="220" height="25" fill="#4a5568" /><line x1="-10" y1="137" x2="200" y2="137" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10 10" /></g>
+            {/* Translucent sees it faded */}
+            <g clipPath="url(#clip-translucent)"><rect x="100" y="125" width="100" height="25" fill="#4a5568" opacity="0.6" /><line x1="100" y1="137" x2="200" y2="137" stroke="#cbd5e1" strokeWidth="2" strokeDasharray="10 10" opacity="0.6" /></g>
+            {/* Opaque does NOT see the road! */}
+          </g>
+
+          <defs>
+            <clipPath id="clip-transparent"><circle cx="50" cy="110" r="45" /></clipPath>
+            <clipPath id="clip-translucent"><circle cx="150" cy="110" r="45" /></clipPath>
+
+            <filter id="glass-blur" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="2.5" />
+            </filter>
+
+            <g id="red-car">
+              {/* Uploaded Car Body */}
+              <image href="./assets/electric-car.png" x="-60" y="-30" width="120" height="60" preserveAspectRatio="xMidYMid meet" />
+
+              {/* Spinning tires removed as per request */}
+            </g>
+          </defs>
+
+          {/* Car visible in Transparent */}
+          <g clipPath="url(#clip-transparent)">
+            <use href="#red-car" y="110" className="car-drive" />
+          </g>
+
+          {/* Car visible in Translucent (Blurred & Faded) */}
+          <g clipPath="url(#clip-translucent)">
+            <g filter="url(#glass-blur)" opacity="0.7">
+              <use href="#red-car" y="110" className="car-drive" />
+            </g>
+          </g>
+
+          {/* Car is NOT drawn in the opaque circle at all */}
+
+        </svg>
+      );
+
+      if (id === "11.4") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes walkPath { 0%, 100% { transform: translate(60px, 100px); } 50% { transform: translate(160px, 100px); } }
+            @keyframes shadowScale { 0%, 100% { transform: scale(3.5) translateY(0); opacity: 0.2; } 50% { transform: scale(1.5) translateY(0); opacity: 0.9; } }
+            .walker { animation: walkPath 4s ease-in-out infinite; }
+            .dyn-shadow { animation: shadowScale 4s ease-in-out infinite; transform-origin: 250px 100px; }
+          `}</style>
+          <rect width="300" height="200" fill="#F0F8FF" />
+
+          {/* Flashlight Beam */}
+          <polygon points="40,100 250,20 250,180" fill="#FFFACD" opacity="0.6" />
+
+          {/* Wall */}
+          <rect x="250" y="0" width="50" height="200" fill="#778899" />
+
+          {/* Flashlight */}
+          <rect x="-5" y="90" width="25" height="20" fill="#808080" stroke="#000" strokeWidth="2" />
+          <path d="M20 90 L35 70 L35 130 L20 110 Z" fill="#FFD700" stroke="#DAA520" strokeWidth="2" />
+
+          {/* The Shadow */}
+          <g className="dyn-shadow">
+            <ellipse cx="250" cy="100" rx="10" ry="30" fill="#243838" />
+          </g>
+
+          {/* Simple Sphere Object */}
+          <g className="walker">
+            <circle cx="0" cy="0" r="20" fill="#FF4500" stroke="#8B0000" strokeWidth="3" />
+            <circle cx="-5" cy="-5" r="5" fill="#fff" opacity="0.6" /> {/* Highlight */}
+          </g>
+        </svg>
+      );
+
+      if (id === "11.5") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes waveLeft { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-120deg); } }
+            @keyframes mirrorAnim { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(120deg); } }
+            .arm-left { animation: waveLeft 1.5s ease-in-out infinite; transform-origin: 90px 100px; }
+            .arm-right { animation: mirrorAnim 1.5s ease-in-out infinite; transform-origin: 210px 100px; }
+          `}</style>
+          <rect width="300" height="200" fill="#1E293B" />
+          <rect x="0" y="140" width="300" height="60" fill="#334155" /> {/* Floor background for depth */}
+          <text x="150" y="25" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#F472B6">Lateral Inversion Magic!</text>
+
+          {/* Real Girl */}
+          <g>
+            <path d="M 85 60 Q 100 40 115 60 L 115 80 L 85 80 Z" fill="#8B4513" /> {/* Hair */}
+            <circle cx="100" cy="70" r="16" fill="#FFE4E1" stroke="#CD5C5C" strokeWidth="2" />
+            <line x1="95" y1="140" x2="95" y2="180" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" /> {/* Leg */}
+            <line x1="105" y1="140" x2="105" y2="180" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" /> {/* Leg */}
+            <line x1="110" y1="100" x2="125" y2="125" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" /> {/* Right Arm down */}
+            {/* Waving Left Arm */}
+            <line x1="90" y1="100" x2="60" y2="120" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" className="arm-left" />
+            <path d="M 90 100 L 110 100 L 115 140 L 85 140 Z" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="2" /> {/* Dress */}
+          </g>
+
+          {/* Mirror Girl (Reflection) - Fully Opaque */}
+          <g>
+            <path d="M 185 60 Q 200 40 215 60 L 215 80 L 185 80 Z" fill="#8B4513" />
+            <circle cx="200" cy="70" r="16" fill="#FFE4E1" stroke="#CD5C5C" strokeWidth="2" />
+            <line x1="195" y1="140" x2="195" y2="180" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" />
+            <line x1="205" y1="140" x2="205" y2="180" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" />
+            <line x1="190" y1="100" x2="175" y2="125" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" /> {/* Left Arm down */}
+            {/* Waving Right Arm (Mirrored) */}
+            <line x1="210" y1="100" x2="240" y2="120" stroke="#FFE4E1" strokeWidth="6" strokeLinecap="round" className="arm-right" />
+            <path d="M 190 100 L 210 100 L 215 140 L 185 140 Z" fill="#FFB6C1" stroke="#FF69B4" strokeWidth="2" />
+          </g>
+
+          {/* Mirror Overlay - Highlight line and shine */}
+          <rect x="145" y="30" width="10" height="150" fill="#38BDF8" stroke="#0284C7" strokeWidth="2" opacity="0.4" />
+          <ellipse cx="150" cy="105" rx="8" ry="40" fill="#fff" opacity="0.3" />
+        </svg>
+      );
+
+      if (id === "11.7") return (
+        <svg viewBox="0 0 300 200" className="w-full h-full font-sans">
+          <style>{`
+            @keyframes slideLight { 0% { stroke-dashoffset: 200; } 100% { stroke-dashoffset: 0; } }
+            .lightbeam { stroke-dasharray: 200; animation: slideLight 3s linear infinite; }
+          `}</style>
+          <rect width="300" height="200" fill="#E0FFFF" />
+
+          {/* Tree outside */}
+          <g transform="translate(60, 100)">
+            <rect x="-5" y="0" width="10" height="50" fill="#8B4513" />
+            <circle cx="0" cy="-20" r="30" fill="#228B22" />
+            <circle cx="-15" cy="-10" r="20" fill="#32CD32" />
+            <circle cx="15" cy="-30" r="20" fill="#32CD32" />
+          </g>
+
+          {/* Camera Box */}
+          <rect x="150" y="30" width="100" height="140" fill="#CD853F" stroke="#8B4513" strokeWidth="4" />
+          <line x1="150" y1="96" x2="150" y2="104" stroke="#E0FFFF" strokeWidth="6" /> {/* Pinhole */}
+
+          {/* Light Rays Crossing Exactly through hole (x=150, y=100) */}
+          <line x1="60" y1="50" x2="240" y2="150" stroke="#FF4500" strokeWidth="2" strokeDasharray="5 5" className="lightbeam" /> {/* Top of tree to bottom screen */}
+          <line x1="60" y1="150" x2="240" y2="50" stroke="#1E90FF" strokeWidth="2" strokeDasharray="5 5" className="lightbeam" /> {/* Bottom of tree to top screen */}
+
+          {/* Screen with Inverted Tree inside */}
+          <rect x="235" y="35" width="10" height="130" fill="#fff" opacity="0.9" />
+          <g transform="translate(240, 100) scale(1) rotate(180)">
+            <rect x="-5" y="0" width="10" height="50" fill="#8B4513" />
+            <circle cx="0" cy="-20" r="30" fill="#228B22" />
+            <circle cx="-15" cy="-10" r="20" fill="#32CD32" />
+            <circle cx="15" cy="-30" r="20" fill="#32CD32" />
+          </g>
+        </svg>
+      );
+      return null;
+    }
+
+    function App() {
+      const [language, setLanguage] = useState('en');
+      const [activeTopicIndex, setActiveTopicIndex] = useState(0);
+      const [activeSubtopicIndex, setActiveSubtopicIndex] = useState(0);
+      const [threeLoaded, setThreeLoaded] = useState(false);
+      const [bulbOnUi, setBulbOnUi] = useState(true);
+      const [is3DMode, setIs3DMode] = useState(true);
+
+      const canvasRef = useRef(null);
+      const sceneRef = useRef(null);
+      const animationFrameRef = useRef(null);
+      const bulbStateRef = useRef(true);
+      const audio3DRef = useRef(null);
+      const audio2DRef = useRef(null);
+
+      // Synchronise audio between 2D and 3D modes
+      useEffect(() => {
+        const fromMedia = is3DMode ? audio2DRef.current : audio3DRef.current;
+        const toMedia = is3DMode ? audio3DRef.current : audio2DRef.current;
+
+        if (fromMedia && toMedia) {
+          const wasPlaying = !fromMedia.paused;
+          const targetTime = fromMedia.currentTime;
+          const targetVol = fromMedia.volume;
+          const targetMuted = fromMedia.muted;
+
+          fromMedia.pause();
+
+          const applySync = () => {
+            toMedia.currentTime = targetTime;
+            toMedia.volume = targetVol;
+            toMedia.muted = targetMuted;
+            if (wasPlaying) {
+              toMedia.play().catch((e) => console.log('Autoplay prevented:', e));
+            }
+          };
+
+          if (toMedia.readyState >= 1) { // 1 = HAVE_METADATA
+            applySync();
+          } else {
+            const onMeta = () => {
+              toMedia.removeEventListener('loadedmetadata', onMeta);
+              applySync();
+            };
+            toMedia.addEventListener('loadedmetadata', onMeta);
+            toMedia.load();
+          }
+        }
+      }, [is3DMode]);
+
+      const activeTopic = CHAPTER_DATA[language][activeTopicIndex];
+      const activeSubtopic = activeTopic.subtopics[activeSubtopicIndex];
+
+      // --- LOAD THREE.JS ---
+      useEffect(() => {
+        if (window.THREE) {
+          setThreeLoaded(true);
+          return;
+        }
+        const script = document.createElement('script');
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js";
+        script.onload = () => setThreeLoaded(true);
+        document.head.appendChild(script);
+      }, []);
+
+      // --- THREE.JS SCENE MANAGEMENT ---
+      useEffect(() => {
+        if (!threeLoaded || !canvasRef.current) return;
+
+        const THREE = window.THREE;
+        const width = canvasRef.current.clientWidth;
+        const height = canvasRef.current.clientHeight;
+
+        if (!sceneRef.current) {
+          const scene = new THREE.Scene();
+          const camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+          const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+
+          renderer.setPixelRatio(window.IFP_PIXEL_RATIO || 1); // cap for ARM GPU performance
+          renderer.setSize(width, height);
+          renderer.shadowMap.enabled = true; // Reverted to true to fix shadow formation breaking
+          renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          renderer.toneMappingExposure = 1.0;
+          renderer.outputEncoding = THREE.sRGBEncoding;
+
+          canvasRef.current.innerHTML = '';
+          canvasRef.current.appendChild(renderer.domElement);
+
+          sceneRef.current = { scene, camera, renderer };
+        }
+
+        const { scene, camera, renderer } = sceneRef.current;
+
+        while (scene.children.length > 0) {
+          scene.remove(scene.children[0]);
+        }
+
+        camera.position.set(0, 0, 10);
+        camera.lookAt(0, 0, 0);
+
+        let updateLogic = () => { };
+
+        // --- HELPER GEOMETRIES ---
+        const createShapeWithHole = (w, h, holeRadius) => {
+          const shape = new THREE.Shape();
+          shape.moveTo(-w / 2, -h / 2); shape.lineTo(w / 2, -h / 2);
+          shape.lineTo(w / 2, h / 2); shape.lineTo(-w / 2, h / 2); shape.lineTo(-w / 2, -h / 2);
+          const hole = new THREE.Path();
+          hole.absarc(0, 0, holeRadius, 0, Math.PI * 2, false);
+          shape.holes.push(hole);
+          return new THREE.ExtrudeGeometry(shape, { depth: 0.05, bevelEnabled: false });
+        };
+
+        const createLetterF = (color, thickness = 0.2, isMirrored = false) => {
+          const group = new THREE.Group();
+          const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.2, metalness: 0.1 });
+          const spine = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2, thickness), mat);
+          spine.position.set(isMirrored ? 0.3 : -0.3, 0, 0);
+          const top = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.4, thickness), mat);
+          top.position.set(isMirrored ? -0.1 : 0.1, 0.8, 0);
+          const mid = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.4, thickness), mat);
+          mid.position.set(isMirrored ? 0.1 : -0.1, 0.1, 0);
+          group.add(spine, top, mid);
+          group.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; });
+          return group;
+        };
+
+        const topicId = activeTopic.id;
+        const subId = activeSubtopicIndex;
+
+        if (topicId === "11.1") {
+          if (subId === 0) { // Sun
+            camera.position.set(0, 0, 9);
+            camera.lookAt(0, 0, 0);
+
+            const sunGroup = new THREE.Group();
+            sunGroup.position.set(0, 0, 0);
+
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 256; // 2:1 aspect ratio for sphere
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#ff7700';
+            ctx.fillRect(0, 0, 512, 256);
+            for (let i = 0; i < 500; i++) {
+              ctx.fillStyle = Math.random() > 0.5 ? '#ffcc00' : '#ff3300';
+              const r = 5 + Math.random() * 10;
+              const cx = Math.random() * 512;
+              const cy = Math.random() * 256;
+              // Wrap horizontally for tileable seam
+              [-512, 0, 512].forEach(ox => {
+                ctx.beginPath();
+                ctx.arc(cx + ox, cy, r, 0, Math.PI * 2);
+                ctx.fill();
+              });
+            }
+
+            const geo = new THREE.SphereGeometry(2, 64, 64);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = THREE.RepeatWrapping;
+            texture.wrapT = THREE.ClampToEdgeWrapping;
+            const mat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff8800, emissiveMap: texture, emissiveIntensity: 1.5 });
+            const sun = new THREE.Mesh(geo, mat);
+            sun.scale.setScalar(1.2);
+            sun.position.set(0, 0, 0);
+            sunGroup.add(sun);
+
+            const glowCanvas = document.createElement('canvas');
+            glowCanvas.width = 256; glowCanvas.height = 256;
+            const gCtx = glowCanvas.getContext('2d');
+            const grad = gCtx.createRadialGradient(128, 128, 30, 128, 128, 128);
+            grad.addColorStop(0, 'rgba(255, 200, 100, 1)'); grad.addColorStop(0.3, 'rgba(255, 100, 0, 0.8)'); grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            gCtx.fillStyle = grad; gCtx.fillRect(0, 0, 256, 256);
+            const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCanvas), blending: THREE.AdditiveBlending, transparent: true }));
+            glowSprite.scale.set(8.5, 8.5, 1);
+            glowSprite.position.set(0, 0, 0);
+            sunGroup.add(glowSprite);
+
+            scene.add(sunGroup);
+
+            const centerLight = new THREE.PointLight(0xffddaa, 3, 20);
+            centerLight.position.set(0, 0, 0);
+            scene.add(centerLight);
+
+            const starGroups = [];
+            for (let g = 0; g < 3; g++) {
+              const starsGeo = new THREE.BufferGeometry();
+              const starsCount = 100;
+              const posArray = new Float32Array(starsCount * 3);
+              const colorsArray = new Float32Array(starsCount * 3);
+
+              for (let i = 0; i < starsCount * 3; i += 3) {
+                posArray[i] = (Math.random() - 0.5) * 30; posArray[i + 1] = (Math.random() - 0.5) * 30; posArray[i + 2] = (Math.random() - 0.5) * 30;
+                colorsArray[i] = 0.8 + Math.random() * 0.2; colorsArray[i + 1] = 0.8 + Math.random() * 0.2; colorsArray[i + 2] = 1.0;
+              }
+              starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
+              starsGeo.setAttribute('color', new THREE.BufferAttribute(colorsArray, 3));
+              const starsMesh = new THREE.Points(starsGeo, new THREE.PointsMaterial({ size: 0.12, vertexColors: true, transparent: true, opacity: 0.8 }));
+              scene.add(starsMesh); starGroups.push(starsMesh);
+            }
+
+            updateLogic = (time) => {
+              sunGroup.rotation.y += 0.002; sun.scale.setScalar(1.2 + Math.sin(time * 3) * 0.02);
+              glowSprite.material.opacity = 0.8 + Math.sin(time * 5) * 0.15;
+              starGroups[0].material.opacity = 0.3 + 0.7 * Math.sin(time * 3.0); starGroups[0].rotation.y -= 0.0005;
+              starGroups[1].material.opacity = 0.3 + 0.7 * Math.sin(time * 4.5 + 2); starGroups[1].rotation.y -= 0.0007;
+              starGroups[2].material.opacity = 0.3 + 0.7 * Math.sin(time * 6.0 + 4); starGroups[2].rotation.y -= 0.0004;
+            };
+          }
+          else if (subId === 1) { // Fire
+            camera.position.set(0, 0, 8); camera.lookAt(0, 0, 0);
+            scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+            const fireGroup = new THREE.Group(); fireGroup.position.y = -1.5;
+
+            const logMat = new THREE.MeshStandardMaterial({ color: 0x3a2210, roughness: 1.0 });
+            for (let i = 0; i < 3; i++) {
+              const log = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.5), logMat);
+              log.rotation.x = Math.PI / 2; log.rotation.y = (Math.PI / 3) * i; log.position.y = 0.2; fireGroup.add(log);
+            }
+
+            const pCount = 300;
+            const fireParticles = new THREE.BufferGeometry();
+            const posArr = new Float32Array(pCount * 3); const velArr = [];
+            for (let i = 0; i < pCount; i++) {
+              posArr[i * 3] = (Math.random() - 0.5) * 1.5; posArr[i * 3 + 1] = Math.random() * 3; posArr[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+              velArr.push({ y: 0.02 + Math.random() * 0.05, x: (Math.random() - 0.5) * 0.02, z: (Math.random() - 0.5) * 0.02, offset: Math.random() * 100 });
+            }
+            fireParticles.setAttribute('position', new THREE.BufferAttribute(posArr, 3));
+
+            const pCanvas = document.createElement('canvas'); pCanvas.width = 32; pCanvas.height = 32;
+            const pCtx = pCanvas.getContext('2d');
+            const pGrad = pCtx.createRadialGradient(16, 16, 0, 16, 16, 16);
+            pGrad.addColorStop(0, 'rgba(255, 200, 50, 1)'); pGrad.addColorStop(0.4, 'rgba(255, 50, 0, 0.8)'); pGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            pCtx.fillStyle = pGrad; pCtx.fillRect(0, 0, 32, 32);
+
+            const fireMesh = new THREE.Points(fireParticles, new THREE.PointsMaterial({ size: 0.8, map: new THREE.CanvasTexture(pCanvas), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.9 }));
+            fireGroup.add(fireMesh); scene.add(fireGroup);
+            const light = new THREE.PointLight(0xff5500, 4, 15); light.position.y = 1; scene.add(light);
+
+            updateLogic = (time) => {
+              const positions = fireMesh.geometry.attributes.position.array;
+              for (let i = 0; i < pCount; i++) {
+                positions[i * 3 + 1] += velArr[i].y;
+                positions[i * 3] += velArr[i].x + Math.sin(time * 3 + velArr[i].offset) * 0.01;
+                positions[i * 3 + 2] += velArr[i].z + Math.cos(time * 3 + velArr[i].offset) * 0.01;
+                if (positions[i * 3 + 1] > 3) {
+                  positions[i * 3 + 1] = 0; positions[i * 3] = (Math.random() - 0.5) * 1.5; positions[i * 3 + 2] = (Math.random() - 0.5) * 1.5;
+                }
+              }
+              fireMesh.geometry.attributes.position.needsUpdate = true; light.intensity = 3 + Math.random() * 2;
+            };
+          }
+          else if (subId === 2) { // Bulb
+            camera.position.set(0, 0, 8); camera.lookAt(0, 0, 0);
+            const bulbGroup = new THREE.Group();
+            const bulbMat = new THREE.MeshStandardMaterial({ color: 0x00aaff, emissive: 0x0044ff, emissiveIntensity: 3, roughness: 0.2, metalness: 0.1 });
+
+            const bulbTop = new THREE.Mesh(new THREE.SphereGeometry(1.5, 64, 64), bulbMat);
+            const bulbNeck = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 0.65, 1.4, 64), bulbMat);
+            bulbNeck.position.y = -1.2; bulbGroup.add(bulbTop, bulbNeck);
+
+            const glowCanvas = document.createElement('canvas'); glowCanvas.width = 256; glowCanvas.height = 256;
+            const gCtx = glowCanvas.getContext('2d');
+            const grad = gCtx.createRadialGradient(128, 128, 20, 128, 128, 128);
+            grad.addColorStop(0, 'rgba(0, 150, 255, 0.8)'); grad.addColorStop(0.4, 'rgba(0, 60, 255, 0.4)'); grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            gCtx.fillStyle = grad; gCtx.fillRect(0, 0, 256, 256);
+            const glowSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCanvas), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false }));
+            glowSprite.scale.set(7, 7, 1); glowSprite.position.y = 0.3; bulbGroup.add(glowSprite);
+
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9, roughness: 0.3 });
+            const baseBody = new THREE.Mesh(new THREE.CylinderGeometry(0.65, 0.5, 0.9, 64), baseMat); baseBody.position.y = -2.2; bulbGroup.add(baseBody);
+
+            for (let i = 0; i < 4; i++) {
+              const thread = new THREE.Mesh(new THREE.TorusGeometry(0.65 - (i * 0.03), 0.08, 16, 64), baseMat);
+              thread.position.y = -1.9 - (i * 0.2); thread.rotation.x = Math.PI / 2; bulbGroup.add(thread);
+            }
+
+            const baseContact = new THREE.Mesh(new THREE.SphereGeometry(0.3, 32, 32), new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 1 }));
+            baseContact.position.y = -2.65; bulbGroup.add(baseContact);
+
+            const bulbLight = new THREE.PointLight(0x0066ff, 8, 20); bulbLight.position.y = -0.5;
+            scene.add(bulbGroup); scene.add(bulbLight);
+
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ color: 0x1a1a24, roughness: 0.2, metalness: 0.6 }));
+            floor.rotation.x = -Math.PI / 2; floor.position.y = -3; scene.add(floor);
+            scene.add(new THREE.AmbientLight(0x050511, 0.5));
+
+            updateLogic = (time) => {
+              bulbGroup.rotation.y = time * 0.3;
+              if (bulbStateRef.current) {
+                bulbMat.emissiveIntensity = 3 + Math.sin(time * 20) * 0.1; bulbMat.color.setHex(0x00aaff);
+                bulbLight.intensity = 8 + Math.sin(time * 20) * 0.2; glowSprite.material.opacity = 0.9 + Math.sin(time * 20) * 0.1;
+              } else {
+                bulbMat.emissiveIntensity = 0; bulbMat.color.setHex(0x222222); bulbLight.intensity = 0; glowSprite.material.opacity = 0;
+              }
+            };
+          }
+          else if (subId === 3) { // Moon
+            camera.position.set(0, 0, 8); camera.lookAt(0, 0, 0);
+            const moonCanvas = document.createElement('canvas'); 
+            moonCanvas.width = 512; moonCanvas.height = 512;
+            const mCtx = moonCanvas.getContext('2d');
+            
+            // Draw clean base
+            mCtx.fillStyle = '#cccccc'; 
+            mCtx.fillRect(0, 0, 512, 512);
+
+            // Add simple, lightweight surface noise (2000 loops is instant, 150000 was slow)
+            for (let i = 0; i < 2000; i++) {
+              mCtx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'; 
+              mCtx.fillRect(Math.random() * 512, Math.random() * 512, 2, 2); 
+            }
+
+            // Draw a few distinct, simple craters
+            for (let i = 0; i < 15; i++) {
+              const x = Math.random() * 512, y = Math.random() * 512, r = 5 + Math.random() * 15;
+              const grad = mCtx.createRadialGradient(x - r * 0.3, y - r * 0.3, 0, x, y, r);
+              grad.addColorStop(0, 'rgba(50,50,50,0.7)');
+              grad.addColorStop(0.7, 'rgba(150,150,150,0.3)');
+              grad.addColorStop(1, 'rgba(200,200,200,0)');
+              mCtx.fillStyle = grad; 
+              mCtx.beginPath(); 
+              mCtx.arc(x, y, r, 0, Math.PI * 2); 
+              mCtx.fill();
+            }
+
+            const moonTex = new THREE.CanvasTexture(moonCanvas);
+            const moon = new THREE.Mesh(new THREE.SphereGeometry(2.5, 64, 64), new THREE.MeshStandardMaterial({ 
+              color: 0xdddddd, map: moonTex, bumpMap: moonTex, bumpScale: 0.1, roughness: 0.9, metalness: 0.05 
+            }));
+            scene.add(moon);
+
+            const sunLight = new THREE.DirectionalLight(0xffffee, 4); sunLight.position.set(10, 2, 5);
+            scene.add(sunLight); scene.add(new THREE.AmbientLight(0x222233, 0.4));
+
+            updateLogic = (time) => {
+              sunLight.position.x = Math.cos(time * 0.3) * 10; sunLight.position.z = Math.sin(time * 0.3) * 10;
+              moon.rotation.y += 0.002; moon.rotation.x = 0.2;
+            };
+          }
+        }
+        else if (topicId === "11.2") {
+          camera.position.set(7, 3, 9); camera.lookAt(0, -0.5, 0);
+          scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+          const candleGroup = new THREE.Group(); candleGroup.position.set(-4.5, -1.5, 0);
+          const wax = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.5), new THREE.MeshStandardMaterial({ color: 0xffffee, roughness: 0.9 })); wax.position.y = 0.75;
+          const flame = new THREE.Mesh(new THREE.ConeGeometry(0.15, 0.6), new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff5500, emissiveIntensity: 2 })); flame.position.y = 1.8;
+          candleGroup.add(wax, flame); scene.add(candleGroup);
+
+          const candleLight = new THREE.PointLight(0xffaa00, 2, 15); candleLight.position.set(-4.5, 0.3, 0); scene.add(candleLight);
+
+          const createCard = (x, isMoved) => {
+            const group = new THREE.Group();
+            const cardMat = new THREE.MeshStandardMaterial({ color: 0xb5895e, roughness: 0.9 });
+            const card = new THREE.Mesh(createShapeWithHole(2.5, 2.5, 0.15), cardMat);
+            card.position.y = isMoved ? 1.5 : 0.3; card.rotation.y = Math.PI / 2; group.add(card);
+            const standMat = new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.8, roughness: 0.4 });
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, isMoved ? 3.5 : 2.3), standMat);
+            pole.position.y = isMoved ? -0.25 : -0.85;
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.6, 0.6, 0.05), standMat); base.position.y = -2;
+            group.add(pole, base); group.position.set(x, 0, 0); return group;
+          };
+
+          scene.add(createCard(-2, false), createCard(0, subId === 1), createCard(2, false));
+
+          const table = new THREE.Mesh(new THREE.PlaneGeometry(16, 6), new THREE.MeshStandardMaterial({ color: 0x5c3a21, roughness: 0.9 }));
+          table.rotation.x = -Math.PI / 2; table.position.y = -2; scene.add(table);
+
+          const beamMat = new THREE.MeshBasicMaterial({ color: 0xffffaa, transparent: true, opacity: 0.7, blending: THREE.AdditiveBlending });
+
+          if (subId === 0) {
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 9.5), beamMat);
+            beam.rotation.z = Math.PI / 2; beam.position.set(0.25, 0.3, 0); scene.add(beam);
+            const spot = new THREE.Mesh(new THREE.CircleGeometry(0.25), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            spot.position.set(5, 0.3, 0); spot.rotation.y = -Math.PI / 2; scene.add(spot);
+            updateLogic = (time) => { flame.scale.y = 1 + Math.sin(time * 10) * 0.1; beam.material.opacity = 0.6 + Math.sin(time * 5) * 0.1; }
+          }
+          else if (subId === 1) {
+            const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 4.5), beamMat);
+            beam.rotation.z = Math.PI / 2; beam.position.set(-2.25, 0.3, 0); scene.add(beam);
+            const spot = new THREE.Mesh(new THREE.CircleGeometry(0.18), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            spot.position.set(-0.02, 0.3, 0); spot.rotation.y = -Math.PI / 2; scene.add(spot);
+            updateLogic = (time) => { flame.scale.y = 1 + Math.sin(time * 10) * 0.1; beam.material.opacity = 0.6 + Math.sin(time * 5) * 0.1; }
+          }
+        }
+        else if (topicId === "11.3") {
+          camera.position.set(0, 1.5, 8);
+          camera.lookAt(0, 0.5, 0);
+
+          const spotLightLeft = new THREE.SpotLight(0xffffff, 2.5);
+          spotLightLeft.position.set(-5, 6, 4); spotLightLeft.angle = Math.PI / 5; spotLightLeft.penumbra = 0.5; spotLightLeft.castShadow = true;
+          spotLightLeft.shadow.mapSize.width = 1024; spotLightLeft.shadow.mapSize.height = 1024; spotLightLeft.shadow.bias = -0.0001;
+          scene.add(spotLightLeft);
+
+          const spotLightRight = new THREE.SpotLight(0xffddaa, 1.0);
+          spotLightRight.position.set(5, 6, 4); spotLightRight.angle = Math.PI / 5; spotLightRight.penumbra = 0.5; spotLightRight.castShadow = false;
+          scene.add(spotLightRight);
+
+          scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+
+          const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({ color: 0xa0aab5, roughness: 0.9 }));
+          floor.rotation.x = -Math.PI / 2; floor.position.y = -1.5; floor.receiveShadow = true; scene.add(floor);
+
+          const wall = new THREE.Mesh(new THREE.PlaneGeometry(50, 25), new THREE.MeshStandardMaterial({ color: 0x8a97a6, roughness: 1.0 }));
+          wall.position.set(0, 0, -4); wall.receiveShadow = true; scene.add(wall);
+
+          const marbleMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.1, metalness: 0.05 });
+          const base1 = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.2, 64), marbleMat); base1.position.y = -1.4; base1.receiveShadow = true; base1.castShadow = true;
+          const base2 = new THREE.Mesh(new THREE.CylinderGeometry(1.3, 1.3, 0.2, 64), marbleMat); base2.position.y = -1.2; base2.receiveShadow = true; base2.castShadow = true;
+          scene.add(base1, base2);
+
+          const target = new THREE.Mesh(new THREE.TorusKnotGeometry(0.6, 0.2, 128, 32), new THREE.MeshStandardMaterial({ color: 0xff0088, metalness: 0.1, roughness: 0.2 }));
+          target.position.y = 0.5; target.castShadow = true; scene.add(target);
+
+          spotLightLeft.target = target; spotLightRight.target = target; scene.add(spotLightLeft.target); scene.add(spotLightRight.target);
+
+          const boxGeo = new THREE.BoxGeometry(3.5, 3.5, 3.5);
+          let boxMat;
+          if (subId === 0) boxMat = new THREE.MeshPhysicalMaterial({ transmission: 0.95, transparent: true, roughness: 0.0, ior: 1.5, color: 0xffffff, side: THREE.DoubleSide });
+          else if (subId === 1) boxMat = new THREE.MeshPhysicalMaterial({ transmission: 0.5, transparent: true, roughness: 0.6, color: 0xdddddd, side: THREE.DoubleSide });
+          else boxMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.2, roughness: 0.5 });
+
+          const enclosure = new THREE.Mesh(boxGeo, boxMat); enclosure.position.y = 0.5; enclosure.castShadow = (subId === 2); scene.add(enclosure);
+
+          if (subId !== 2) enclosure.add(new THREE.LineSegments(new THREE.EdgesGeometry(boxGeo), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.2 })));
+
+          updateLogic = (time) => { target.rotation.x = time * 0.5; target.rotation.y = time * 0.8; };
+        }
+        else if (topicId === "11.4") {
+          // Dynamic Shadow Size Diagram Setup
+          camera.position.set(0, 2, 22);
+          camera.lookAt(0, 0, 0);
+
+          scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+          // Light Source Marker (Glowing dot)
+          const lightMarker = new THREE.Mesh(
+            new THREE.SphereGeometry(0.3, 16, 16),
+            new THREE.MeshBasicMaterial({ color: 0xffaa00 })
+          );
+          lightMarker.position.set(-6, 0, 0);
+          scene.add(lightMarker);
+
+          // The actual Spotlight casting the shadow
+          const spotLight = new THREE.SpotLight(0xffffff, 4.0);
+          spotLight.position.set(-6, 0, 0);
+          spotLight.angle = Math.PI / 4;
+          spotLight.penumbra = 0.2;
+          spotLight.castShadow = true;
+          spotLight.shadow.mapSize.width = 1024; spotLight.shadow.mapSize.height = 1024;
+          spotLight.shadow.bias = -0.0005;
+          scene.add(spotLight);
+
+          // Spotlight target
+          const targetObj = new THREE.Object3D();
+          targetObj.position.set(6, 0, 0);
+          scene.add(targetObj);
+          spotLight.target = targetObj;
+
+          // Screen to catch the shadow
+          const screen = new THREE.Mesh(
+            new THREE.PlaneGeometry(12, 12),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9, side: THREE.DoubleSide })
+          );
+          screen.position.set(6, 0, 0);
+          screen.rotation.y = -Math.PI / 2;
+          screen.receiveShadow = true;
+          scene.add(screen);
+
+          // Floor (mostly for ambient bounce and context)
+          const floor = new THREE.Mesh(
+            new THREE.PlaneGeometry(30, 20),
+            new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 1.0 })
+          );
+          floor.position.set(0, -6, 0);
+          floor.rotation.x = -Math.PI / 2;
+          floor.receiveShadow = true;
+          scene.add(floor);
+
+          // The Object (Blue Sphere)
+          const sphereRadius = 1.2;
+          const ball = new THREE.Mesh(
+            new THREE.SphereGeometry(sphereRadius, 64, 64),
+            new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.3 })
+          );
+          ball.castShadow = true;
+          scene.add(ball);
+
+          // Center Dashed Line
+          const dashGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-6, 0, 0), new THREE.Vector3(6, 0, 0)]);
+          const dashMat = new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.2, gapSize: 0.2 });
+          const dashLine = new THREE.Line(dashGeo, dashMat);
+          dashLine.computeLineDistances();
+          scene.add(dashLine);
+
+          // Ray Lines mapping the shadow
+          const createRayLine = (color) => {
+            const mat = new THREE.LineBasicMaterial({ color: color, linewidth: 2 });
+            const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()]);
+            return new THREE.Line(geo, mat);
+          };
+
+          const rayTop = createRayLine(0xef4444); // Red top rays
+          const rayBot = createRayLine(0x0ea5e9); // Blue bottom rays
+          scene.add(rayTop, rayBot);
+
+          // subId 0 = Object Close (Large Shadow) -> x = -3
+          // subId 1 = Object Far (Small Shadow) -> x = 2
+          const targetPos = subId === 0 ? -3 : 2;
+
+          updateLogic = () => {
+            ball.position.x += (targetPos - ball.position.x) * 0.08;
+
+            const Lx = -6, Ly = 0;
+            const Sx = ball.position.x, Sy = 0;
+            const R = sphereRadius;
+            const ScX = 5.95; // Just slightly in front of the screen to avoid z-fighting
+
+            const distToSphere = Sx - Lx;
+            const totalDist = ScX - Lx;
+            const scale = totalDist / distToSphere;
+
+            const topSy = Sy + R;
+            const screenTopY = Ly + (topSy - Ly) * scale;
+
+            const botSy = Sy - R;
+            const screenBotY = Ly + (botSy - Ly) * scale;
+
+            rayTop.geometry.setFromPoints([
+              new THREE.Vector3(Lx, Ly, 0),
+              new THREE.Vector3(Sx, topSy, 0),
+              new THREE.Vector3(ScX, screenTopY, 0)
+            ]);
+
+            rayBot.geometry.setFromPoints([
+              new THREE.Vector3(Lx, Ly, 0),
+              new THREE.Vector3(Sx, botSy, 0),
+              new THREE.Vector3(ScX, screenBotY, 0)
+            ]);
+          };
+        }
+        else if (topicId === "11.5") {
+          camera.position.set(8, 4, 10); camera.lookAt(0, 1, 0);
+
+          const dirLight = new THREE.DirectionalLight(0xffeedd, 4.5);
+          dirLight.position.set(5, 8, 6); dirLight.castShadow = true; dirLight.shadow.mapSize.width = 1024; dirLight.shadow.mapSize.height = 1024;
+          dirLight.shadow.camera.left = -10; dirLight.shadow.camera.right = 10; dirLight.shadow.camera.top = 10; dirLight.shadow.camera.bottom = -10; dirLight.shadow.bias = -0.001; scene.add(dirLight);
+
+          const virtualLight = new THREE.DirectionalLight(0xffeedd, 4.5);
+          virtualLight.position.set(5, 8, -6); virtualLight.castShadow = true; virtualLight.shadow.mapSize.width = 1024; virtualLight.shadow.mapSize.height = 1024;
+          virtualLight.shadow.camera.left = -10; virtualLight.shadow.camera.right = 10; virtualLight.shadow.camera.top = 10; virtualLight.shadow.camera.bottom = -10; virtualLight.shadow.bias = -0.001; scene.add(virtualLight);
+
+          scene.add(new THREE.AmbientLight(0xffffff, 0.25));
+
+          const backWall = new THREE.Mesh(new THREE.PlaneGeometry(40, 25), new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 1 })); backWall.position.set(0, 5, -15); scene.add(backWall);
+
+          const floorCanvas = document.createElement('canvas'); floorCanvas.width = 512; floorCanvas.height = 512; const ctx = floorCanvas.getContext('2d');
+          ctx.fillStyle = '#64748b'; ctx.fillRect(0, 0, 512, 512); ctx.fillStyle = '#475569';
+          for (let i = 0; i < 8; i++) { for (let j = 0; j < 8; j++) { if ((i + j) % 2 === 0) ctx.fillRect(i * 64, j * 64, 64, 64); } }
+          const floorTex = new THREE.CanvasTexture(floorCanvas); floorTex.wrapS = THREE.RepeatWrapping; floorTex.wrapT = THREE.RepeatWrapping; floorTex.repeat.set(10, 10);
+          const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), new THREE.MeshStandardMaterial({ map: floorTex, roughness: 0.3, metalness: 0.2 }));
+          floor.rotation.x = -Math.PI / 2; floor.position.y = -2; floor.receiveShadow = true; scene.add(floor);
+
+          const mirror = new THREE.Mesh(new THREE.PlaneGeometry(10, 7), new THREE.MeshPhysicalMaterial({ color: 0x88ccff, metalness: 1.0, roughness: 0.0, transmission: 0.1, transparent: true, opacity: 0.25, side: THREE.DoubleSide }));
+          const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a1a05, roughness: 0.8 });
+          const frameL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7.6, 0.3), frameMat); frameL.position.x = -5.15;
+          const frameR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7.6, 0.3), frameMat); frameR.position.x = 5.15;
+          const frameT = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.3, 0.3), frameMat); frameT.position.y = 3.65;
+          const frameB = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.3, 0.3), frameMat); frameB.position.y = -3.65;
+          const mirrorGroup = new THREE.Group(); mirrorGroup.add(mirror, frameL, frameR, frameT, frameB); mirrorGroup.position.y = 1.5;
+          mirrorGroup.children.forEach(c => { c.castShadow = true; c.receiveShadow = true; }); scene.add(mirrorGroup);
+
+          const createBoy = () => {
+            const group = new THREE.Group();
+            const skinMat = new THREE.MeshStandardMaterial({ color: 0xffa07a, roughness: 0.4, side: THREE.DoubleSide });
+            const shirtMat = new THREE.MeshStandardMaterial({ color: 0xff1144, roughness: 0.6, side: THREE.DoubleSide });
+            const pantsMat = new THREE.MeshStandardMaterial({ color: 0x0044cc, roughness: 0.7, side: THREE.DoubleSide });
+            const hairMat = new THREE.MeshStandardMaterial({ color: 0x221100, roughness: 0.9, side: THREE.DoubleSide });
+            const featureMat = new THREE.MeshStandardMaterial({ color: 0x111111, side: THREE.DoubleSide });
+            const tieMat = new THREE.MeshStandardMaterial({ color: 0xffcc00, side: THREE.DoubleSide });
+            const pocketMat = new THREE.MeshStandardMaterial({ color: 0x880022, roughness: 0.8, side: THREE.DoubleSide });
+
+            const addPart = (geom, mat, x, y, z) => { const mesh = new THREE.Mesh(geom, mat); mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; return mesh; };
+
+            group.add(addPart(new THREE.CylinderGeometry(0.2, 0.22, 1.4), pantsMat, 0.25, 0.7, 0));
+            group.add(addPart(new THREE.CylinderGeometry(0.2, 0.22, 1.4), pantsMat, -0.25, 0.7, 0));
+            group.add(addPart(new THREE.BoxGeometry(1.1, 1.4, 0.5), shirtMat, 0, 2.1, 0));
+            group.add(addPart(new THREE.BoxGeometry(0.12, 0.8, 0.05), tieMat, 0, 2.1, 0.26));
+            group.add(addPart(new THREE.BoxGeometry(0.25, 0.25, 0.05), pocketMat, -0.28, 2.3, 0.26)); // Pocket on right chest
+
+            group.add(addPart(new THREE.BoxGeometry(0.7, 0.7, 0.7), skinMat, 0, 3.15, 0));
+            group.add(addPart(new THREE.BoxGeometry(0.75, 0.2, 0.75), hairMat, 0, 3.6, 0));
+
+            group.add(addPart(new THREE.SphereGeometry(0.06), featureMat, 0.15, 3.25, 0.35));
+            group.add(addPart(new THREE.SphereGeometry(0.06), featureMat, -0.15, 3.25, 0.35));
+            group.add(addPart(new THREE.BoxGeometry(0.2, 0.04, 0.02), featureMat, 0, 3.0, 0.35));
+
+            const pivotL = new THREE.Group(); pivotL.position.set(0.65, 2.6, 0);
+            pivotL.add(addPart(new THREE.CylinderGeometry(0.15, 0.15, 1.2), shirtMat, 0, -0.5, 0), addPart(new THREE.SphereGeometry(0.18), skinMat, 0, -1.1, 0));
+            group.add(pivotL); group.userData.pivotL = pivotL;
+
+            const pivotR = new THREE.Group(); pivotR.position.set(-0.65, 2.6, 0);
+            pivotR.add(addPart(new THREE.CylinderGeometry(0.15, 0.15, 1.2), shirtMat, 0, -0.5, 0), addPart(new THREE.SphereGeometry(0.18), skinMat, 0, -1.1, 0));
+            group.add(pivotR); group.userData.pivotR = pivotR;
+
+            return group;
+          }
+
+          const realObj = createBoy(); realObj.position.set(0, -2, 3); realObj.rotation.y = Math.PI; scene.add(realObj);
+          const virtualObj = createBoy(); virtualObj.position.set(0, -2, -3); virtualObj.rotation.y = Math.PI; virtualObj.scale.z = -1; scene.add(virtualObj);
+
+          if (subId === 0) {
+            updateLogic = (time) => {
+              const bob = Math.sin(time * 2) * 0.05; realObj.position.y = -2 + bob; virtualObj.position.y = -2 + bob;
+              realObj.userData.pivotR.rotation.x = Math.sin(time) * 0.1; virtualObj.userData.pivotR.rotation.x = realObj.userData.pivotR.rotation.x;
+              realObj.userData.pivotL.rotation.x = Math.sin(time + Math.PI) * 0.1; virtualObj.userData.pivotL.rotation.x = realObj.userData.pivotL.rotation.x;
+            };
+          } else {
+            updateLogic = (time) => {
+              const wave = Math.sin(time * 5) * 0.4;
+              realObj.userData.pivotR.rotation.x = Math.PI * 0.8; realObj.userData.pivotR.rotation.z = -0.3 + wave;
+              virtualObj.userData.pivotR.rotation.x = realObj.userData.pivotR.rotation.x; virtualObj.userData.pivotR.rotation.z = realObj.userData.pivotR.rotation.z;
+              realObj.userData.pivotL.rotation.x = 0; virtualObj.userData.pivotL.rotation.x = 0;
+            }
+          }
+        }
+        else if (topicId === "11.7") {
+          // PINHOLE CAMERA (Diagram Match)
+          camera.position.set(7, 5, 8); camera.lookAt(0, 0, 0);
+
+          scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+          const dLight = new THREE.DirectionalLight(0xffffff, 2); dLight.position.set(-5, 5, 5); scene.add(dLight);
+
+          const realObj = createLetterF(0x00cc00, 0.3, false); realObj.position.set(0, 0, 5); scene.add(realObj);
+
+          const boxMat = new THREE.MeshStandardMaterial({ color: 0xdddddd, side: THREE.DoubleSide, transparent: true, opacity: 0.3 });
+          const solidBoxMat = new THREE.MeshStandardMaterial({ color: 0xaaaaaa });
+          const frontWall = new THREE.Mesh(createShapeWithHole(4, 4, 0.2), solidBoxMat); frontWall.position.set(0, 0, 0); scene.add(frontWall);
+
+          const film = new THREE.Mesh(new THREE.PlaneGeometry(4, 4), new THREE.MeshPhysicalMaterial({ color: 0x88eebb, side: THREE.DoubleSide, transmission: 0.9, transparent: true, opacity: 1.0, roughness: 0.4 })); film.position.set(0, 0, -4); scene.add(film);
+
+          const addWall = (geom, rx, ry, px, py, pz) => { const w = new THREE.Mesh(geom, boxMat); w.rotation.x = rx; w.rotation.y = ry; w.position.set(px, py, pz); scene.add(w); };
+          addWall(new THREE.PlaneGeometry(4, 4), Math.PI / 2, 0, 0, 2, -2); // Top
+          addWall(new THREE.PlaneGeometry(4, 4), Math.PI / 2, 0, 0, -2, -2); // Bottom
+          addWall(new THREE.PlaneGeometry(4, 4), 0, Math.PI / 2, 2, 0, -2); // Side1
+          addWall(new THREE.PlaneGeometry(4, 4), 0, Math.PI / 2, -2, 0, -2); // Side2
+
+          // Edge highlights for the box to look diagrammatic
+          const edgesGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(4, 4, 4));
+          const edges = new THREE.LineSegments(edgesGeo, new THREE.LineBasicMaterial({ color: 0x444444 }));
+          edges.position.set(0, 0, -2); scene.add(edges);
+
+          const projectedObj = createLetterF(0x00cc00, 0.05, true); projectedObj.position.set(0, 0, -3.95); projectedObj.rotation.z = Math.PI; projectedObj.scale.set(0.8, 0.8, 0.8); scene.add(projectedObj);
+
+          // Thick Volumetric Light Rays
+          const createThickRay = (color) => {
+            const geom = new THREE.CylinderGeometry(0.02, 0.02, 1, 8);
+            geom.rotateX(Math.PI / 2); geom.translate(0, 0, 0.5); // Origin at start, pointing Z
+            return new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.8 }));
+          };
+          const updateRay = (ray, pStart, pEnd) => { ray.position.copy(pStart); ray.lookAt(pEnd); ray.scale.set(1, 1, pStart.distanceTo(pEnd)); };
+
+          const rayTop = createThickRay(0x00ff00), rayMid = createThickRay(0xff0000), rayBot = createThickRay(0x0000ff);
+          scene.add(rayTop, rayMid, rayBot);
+
+          updateLogic = (time) => {
+            const yOffset = Math.sin(time) * 0.5; realObj.position.y = yOffset; projectedObj.position.y = -yOffset * 0.8;
+
+            const topY = 1 + yOffset, midY = 0.1 + yOffset, botY = -1 + yOffset;
+            updateRay(rayTop, new THREE.Vector3(0.1, topY, 5), new THREE.Vector3(-0.08, -topY * 0.8, -4));
+            updateRay(rayMid, new THREE.Vector3(-0.1, midY, 5), new THREE.Vector3(0.08, -midY * 0.8, -4));
+            updateRay(rayBot, new THREE.Vector3(-0.3, botY, 5), new THREE.Vector3(0.24, -botY * 0.8, -4));
+          };
+        }
+
+        const clock = new THREE.Clock();
+        const animate = () => { animationFrameRef.current = requestAnimationFrame(animate); if (!window.IFP_VISIBLE) return; updateLogic(clock.getElapsedTime()); renderer.render(scene, camera); };
+
+        if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        animate();
+
+        // Resize Observer automatically guarantees mathematical centering even during UI layout shifts
+        const handleResize = () => {
+          if (!canvasRef.current || !sceneRef.current) return;
+          const w = canvasRef.current.clientWidth, h = canvasRef.current.clientHeight;
+          const { camera, renderer } = sceneRef.current;
+          camera.aspect = w / h; camera.updateProjectionMatrix(); renderer.setSize(w, h);
+        };
+
+        const resizeObserver = new ResizeObserver(() => handleResize());
+        resizeObserver.observe(canvasRef.current);
+        window.addEventListener('resize', handleResize);
+
+        return () => {
+          resizeObserver.disconnect();
+          window.removeEventListener('resize', handleResize);
+          if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+        };
+      }, [threeLoaded, activeTopicIndex, activeSubtopicIndex]);
+
+      const returnToPlatform = () => {
+        playClickSound();
+        window.parent.postMessage('closeOverlay', '*');
+      };
+
+      return (
+        <div className="min-h-screen w-full relative flex items-center justify-center font-sans overflow-hidden bg-slate-950 selection:bg-white/30 text-white" style={{ backgroundImage: "url('./assets/chapter background lowres.jpg')", backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat' }}>
+
+          <div className="absolute top-4 sm:top-6 left-4 sm:left-6 z-30">
+            <button onClick={returnToPlatform} className="flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-full transition-all text-white font-medium shadow-lg shrink-0">
+              <ChevronLeft size={20} className="shrink-0" />
+              <span className="hidden sm:block whitespace-nowrap">Back</span>
+            </button>
+          </div>
+
+          <div className="absolute inset-0 z-0 bg-black/40"></div>
+
+          <div className="relative z-10 w-full max-w-7xl px-4 flex flex-col items-center gap-6">
+
+            <div className="px-6 py-2 rounded-full border border-white/20 bg-white/5 backdrop-blur-md shadow-lg text-white/90 text-[10px] sm:text-sm tracking-widest font-semibold uppercase whitespace-nowrap overflow-hidden text-ellipsis">
+              {language === 'en' ? "Chapter 11 Light shadow and reflection" : "अध्याय 11 प्रकाश छाया और परावर्तन"}
+            </div>
+
+            <div className="w-full flex items-center gap-6">
+
+              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p - 1 + CHAPTER_DATA[language].length) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50">
+                <ChevronLeft size={32} />
+              </button>
+
+              <div className="flex-1 glass-panel-card p-6 md:p-10 flex flex-col gap-8 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1/2 bg-gradient-to-b from-white/10 to-transparent pointer-events-none"></div>
+
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+                  <h2 className="text-2xl md:text-3xl font-sans font-light text-white drop-shadow-md tracking-wide">
+                    <span className="font-medium opacity-80 mr-3">{activeTopic.id}</span> {activeTopic.title}
+                  </h2>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex bg-black/40 p-1 rounded-full border border-white/10 backdrop-blur-md shrink-0">
+                      <button
+                        onClick={() => { playClickSound(); setLanguage('en'); }}
+                        className={`px-3 py-1 text-xs sm:px-4 sm:py-1.5 rounded-full sm:text-sm font-semibold transition-all cursor-pointer ${language === 'en' ? 'bg-amber-600 text-white shadow-md' : 'text-white/60 hover:text-white'}`}
+                      >
+                        EN
+                      </button>
+                      <button
+                        onClick={() => { playClickSound(); setLanguage('hi'); }}
+                        className={`px-3 py-1 text-xs sm:px-4 sm:py-1.5 rounded-full sm:text-sm font-semibold transition-all cursor-pointer ${language === 'hi' ? 'bg-amber-600 text-white shadow-md' : 'text-white/60 hover:text-white'}`}
+                      >
+                        HI
+                      </button>
+                    </div>
+
+                    <div className="flex bg-black/40 p-1 rounded-full border border-white/10 backdrop-blur-md shrink-0">
+                      <button
+                        onClick={() => { playClickSound(); setIs3DMode(false); }}
+                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${!is3DMode ? 'bg-blue-600 text-white shadow-md' : 'text-white/60 hover:text-white'}`}
+                      >
+                        2D
+                      </button>
+                      <button
+                        onClick={() => { playClickSound(); setIs3DMode(true); }}
+                        className={`px-4 py-1.5 rounded-full text-sm font-semibold transition-all cursor-pointer ${is3DMode ? 'bg-blue-600 text-white shadow-md' : 'text-white/60 hover:text-white'}`}
+                      >
+                        3D
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3D MODE (Hidden when 2D is active, NOT unmounted) */}
+                <div className={`${is3DMode ? 'block' : 'hidden'} w-full`}>
+                  <div className="flex flex-col lg:flex-row gap-8 min-h-[400px]">
+                    <div className="flex-1 relative rounded-2xl border border-white/10 bg-black/40 overflow-hidden shadow-inner flex items-center justify-center min-h-[400px]">
+                      {!threeLoaded && <div className="absolute inset-0 flex items-center justify-center text-white/50 animate-pulse">{language === 'en' ? 'Loading 3D Engine...' : '3D इंजन लोड हो रहा है...'}</div>}
+                      <div ref={canvasRef} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"></div>
+                      <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-10"></div>
+                      {activeTopic.id === "11.1" && activeSubtopicIndex === 2 && (
+                        <button onClick={() => { playClickSound(); bulbStateRef.current = !bulbStateRef.current; setBulbOnUi(bulbStateRef.current); }} className="absolute bottom-6 right-6 z-20 px-5 py-2.5 bg-black/40 hover:bg-black/60 border border-white/20 rounded-xl backdrop-blur-md text-white font-semibold transition-all shadow-lg flex items-center gap-2 cursor-pointer">
+                          <Lightbulb size={20} className={`transition-colors duration-300 ${bulbOnUi ? "text-yellow-400" : "text-white/40"}`} />
+                          {bulbOnUi ? (language === 'en' ? "Turn Off" : "बंद करें") : (language === 'en' ? "Turn On" : "चालू करें")}
+                        </button>
+                      )}
+                    </div>
+                    <div className="w-full lg:w-72 flex flex-col gap-3">
+                      <h3 className="text-white/80 font-medium mb-2 uppercase tracking-wide text-sm px-2">{language === 'en' ? 'Interactive Guide' : 'इंटरएक्टिव गाइड'}</h3>
+                      {activeTopic.subtopics.map((sub, idx) => {
+                        const SubIcon = sub.icon;
+                        const isActive = activeSubtopicIndex === idx;
+                        return (
+                          <button key={idx} onClick={() => { playClickSound(); setActiveSubtopicIndex(idx); bulbStateRef.current = true; setBulbOnUi(true); }} className={`flex items-center gap-4 p-4 rounded-2xl transition-all duration-300 text-left ${isActive ? 'bg-white/20 border-white/40 shadow-lg text-white' : 'bg-white/5 border-transparent text-white/70 hover:bg-white/10 hover:text-white'} border backdrop-blur-md cursor-pointer`}>
+                            <div className={`p-2 rounded-xl ${isActive ? 'bg-white/20 shadow-inner' : 'bg-black/20'}`}><SubIcon size={24} /></div>
+                            <div>
+                              <div className="font-semibold">{titleCase(sub.title)}</div>
+                              <div className="text-xs opacity-70">{sub.subtitle}</div>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                  <div className="w-full p-5 rounded-2xl bg-black/30 border border-white/10 backdrop-blur-md text-white/90 leading-relaxed font-medium mt-8 flex flex-col lg:flex-row items-center gap-6">
+                    <div className="flex-1">
+                      {activeTopic.description}
+                    </div>
+                    <div className="w-full lg:w-auto min-w-[300px] border border-white/20 bg-white/5 p-3 rounded-xl backdrop-blur-md shadow-lg">
+                      <div className="flex items-center gap-2 mb-2 justify-center text-white/80">
+                        <Lightbulb size={16} className="text-amber-400" />
+                        <div className="text-[10px] md:text-xs font-bold uppercase tracking-widest">{language === 'en' ? 'Audio Explanation' : 'ऑडियो व्याख्या'}</div>
+                      </div>
+                      <audio ref={audio3DRef} key={"audio_3d_" + activeTopic.id + language} controls preload="auto" src={activeTopic.audioSrc} className="w-full h-8 outline-none rounded-full" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2D OPEN-BOOK MODE (Hidden when 3D is active) */}
+                <div className={`${!is3DMode ? 'flex' : 'hidden'} w-full justify-center`}>
+                  <div className="w-full max-w-6xl h-auto min-h-[500px] bg-[#2a3040] rounded-xl border-[16px] border-[#1e2330] p-2 md:p-4 flex flex-col md:flex-row shadow-[0_20px_50px_rgba(0,0,0,0.5)] relative">
+                    <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-12 -ml-6 bg-gradient-to-r from-black/0 via-black/30 to-black/0 z-20 pointer-events-none"></div>
+
+                    {/* Left Page (Animation) */}
+                    <div className="flex-[1.2] bg-[#fdfaf6] rounded-t md:rounded-l md:rounded-tr-none flex justify-center items-center p-4 md:p-8 shadow-[inset_-5px_0_15px_rgba(0,0,0,0.05)] border-b md:border-b-0 md:border-r border-slate-300 relative z-10 w-full min-h-[400px]">
+                      <div className="w-full h-full border-4 border-slate-800 bg-white relative overflow-hidden flex items-center justify-center p-0 shadow-[inset_0_0_20px_rgba(0,0,0,0.1)] rounded min-h-[300px]">
+                        <TopicAnimation id={activeTopic.id} />
+                      </div>
+                    </div>
+
+                    {/* Right Page (Content & Audio) */}
+                    <div className="flex-1 bg-[#fdfaf6] rounded-b md:rounded-r md:rounded-bl-none flex flex-col justify-between p-4 md:p-8 shadow-[inset_10px_0_20px_-10px_rgba(0,0,0,0.1)] relative z-10 min-h-[400px]">
+                      <div className="flex-1 bg-transparent p-2 text-slate-800 text-sm md:text-base font-serif leading-relaxed overflow-y-auto whitespace-pre-wrap max-h-full">
+                        {activeTopic.fullText}
+                      </div>
+                      <div className="mt-4 border-2 border-slate-800 bg-[#E6E6FA] p-3 md:p-4 rounded shadow-[4px_4px_0_#1e293b]">
+                        <div className="flex items-center gap-2 mb-2 justify-center">
+                          <Lightbulb size={16} className="text-amber-500" />
+                          <div className="text-[10px] md:text-xs font-bold text-slate-800 uppercase tracking-widest">{language === 'en' ? 'Enthusiastic Teacher' : 'उत्साही शिक्षक'}</div>
+                        </div>
+                        {/* Audio component is here and only rendered in 2D so it shouldn't autoplay on initial load */}
+                        <audio ref={audio2DRef} key={"audio_2d_" + activeTopic.id + language} controls preload="auto" src={activeTopic.audioSrc} className="w-full h-8 outline-none rounded-full" />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p + 1) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50">
+                <ChevronRight size={32} />
+              </button>
+            </div>
+
+            <div className="flex gap-3 items-center">
+              {CHAPTER_DATA[language].map((_, idx) => (
+                <button key={idx} onClick={() => { playClickSound(); setActiveTopicIndex(idx); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className={`transition-all duration-300 rounded-full cursor-pointer ${activeTopicIndex === idx ? 'w-8 h-2.5 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/50'}`} aria-label={`Go to topic ${idx + 1}`} />
+              ))}
+            </div>
+
+          </div>
+        </div>
+      );
+    }
+
+    function titleCase(str) {
+      return str.toLowerCase().split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+
+</html>

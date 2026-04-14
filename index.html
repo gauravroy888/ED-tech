@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" id="vp-meta" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- Fix extreme zoom on 4K smartboards: if physical pixel width >= 3000, lock CSS viewport to 1920px -->
+  <script>
+    (function(){
+      var phys = window.screen.width * (window.devicePixelRatio || 1);
+      if (phys >= 3000) {
+        document.getElementById('vp-meta').content =
+          'width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+      }
+    })();
+  </script>
+  <title>Edtech Island — Your Learning Universe</title>
+  <meta name="description" content="Edtech Island — An immersive learning platform for ICSE students. Explore chapters, experiments, quizzes and mixed reality." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web@2.1.1" defer></script>
+  <!-- Three.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- IFP Performance Optimizer — must load before script.js -->
+  <script src="perf_optimizer.js"></script>
+  <link rel="stylesheet" href="styles.css?v=22" />
+</head>
+<body>
+
+<!-- Global top right badge -->
+<div class="curriculum-badge glass-pill">CBSE Class 6</div>
+
+<!-- Global top left theme toggle -->
+<button id="theme-toggle" class="glass-pill" style="position: absolute; top: 24px; left: 24px; z-index: 1000; padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary); transition: all 0.3s ease;" onclick="toggleTheme()" aria-label="Toggle Theme">
+  <span class="theme-icon">🌙</span> Dark
+</button>
+
+<button id="fullscreen-toggle" class="glass-pill" style="position: fixed; right: 24px; bottom: 24px; z-index: 1000; padding: 10px 16px; cursor: pointer; display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.9rem; color: var(--text-primary); transition: all 0.3s ease;" onclick="toggleAppFullscreen()" aria-label="Enter Fullscreen">
+  <span class="fullscreen-icon">⛶</span> Fullscreen
+</button>
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     SCREEN 1: HOME / WELCOME
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div id="screen-home" class="screen active" style="background-image: url('assets/Future verion lowres.jpg');">
+  <div class="bg-overlay"></div>
+  <div class="particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="screen-content home-content">
+
+    <!-- Logo pill -->
+    <div class="logo-pill" role="banner">
+      <div class="logo-star">✦</div>
+      <span class="logo-text">EDTECH ISLAND</span>
+    </div>
+
+    <!-- Welcome card -->
+    <div class="glass-card home-card" role="main">
+
+      <!-- Stylised header (from Solar system.html) -->
+      <div class="solar-header-wrap">
+        <div class="solar-header-accent"></div>
+        <h1 class="solar-title">Welcome to <span class="gradient-text">Study Island</span></h1>
+      </div>
+
+      <!-- Subject preview pills -->
+      <div class="subject-preview-row" role="list" aria-label="Available subjects">
+        <div class="subject-pill glass-mini" role="listitem">
+          <span class="subject-icon">🔬</span>
+          <div class="subject-pill-info">
+            <span class="subject-pill-name">SCIENCE</span>
+            <span class="subject-pill-sub">5 Studies Active</span>
+          </div>
+        </div>
+        <div class="subject-pill glass-mini" role="listitem">
+          <span class="subject-icon">🏛️</span>
+          <div class="subject-pill-info">
+            <span class="subject-pill-name">HISTORY</span>
+            <span class="subject-pill-sub">3 Eras Open</span>
+          </div>
+        </div>
+        <div class="subject-pill glass-mini" role="listitem">
+          <span class="subject-icon">🌍</span>
+          <div class="subject-pill-info">
+            <span class="subject-pill-name">GEOGRAPHY</span>
+            <span class="subject-pill-sub">6 Continents Mapped</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- CTA Buttons -->
+      <div class="cta-group">
+        <button id="btn-start" class="btn-primary" onclick="navigateTo('screen-subjects')" aria-label="Start learning">
+          <span class="btn-icon">▶</span> START
+        </button>
+        <button id="btn-resume" class="btn-secondary" onclick="navigateTo('screen-subjects')" aria-label="Resume learning">
+          RESUME
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav glass-nav" aria-label="Main navigation">
+    <button class="nav-btn active" onclick="navigateTo('screen-home')" id="nav-home-1" aria-label="Home"><span class="nav-icon">⌂</span><span class="nav-label">HOME</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" onclick="navigateTo('screen-subjects')" id="nav-studies-1" aria-label="Studies"><span class="nav-icon">📖</span><span class="nav-label">STUDIES</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" id="nav-world-1" aria-label="World"><span class="nav-icon">🗺️</span><span class="nav-label">WORLD</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" id="nav-profile-1" aria-label="Profile"><span class="nav-icon">◉</span><span class="nav-label">PROFILE</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" id="nav-exit-1" aria-label="Exit"><span class="nav-icon">→</span><span class="nav-label">EXIT</span></button>
+  </nav>
+</div>
+
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     SCREEN 2: SUBJECT SELECTION
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div id="screen-subjects" class="screen" style="background-image: url('assets/Future verion lowres.jpg');">
+  <div class="bg-overlay"></div>
+  <div class="particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="screen-content subjects-content">
+
+    <!-- Header -->
+    <div class="page-header-card glass-pill" role="heading" aria-level="1">
+      <span class="page-title-text">(Subject Selection)</span>
+    </div>
+
+    <!-- Subject grid -->
+    <div class="subjects-grid" role="list" aria-label="Select a subject">
+
+      <button class="subject-card glass-panel-card" onclick="navigateTo('screen-chapters')" id="subj-science" role="listitem" aria-label="Science">
+        <div class="subject-card-icon">🔬</div>
+        <div class="subject-card-name">SCIENCE</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 45%;"></div></div>
+        <div class="subject-card-stat">5 Studies Active</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-history" role="listitem" aria-label="History">
+        <div class="subject-card-icon">🏛️</div>
+        <div class="subject-card-name">HISTORY</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 30%;"></div></div>
+        <div class="subject-card-stat">3 Eras Open</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-geography" role="listitem" aria-label="Geography">
+        <div class="subject-card-icon">🌍</div>
+        <div class="subject-card-name">GEOGRAPHY</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 75%;"></div></div>
+        <div class="subject-card-stat">8 Continents Mapped</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-pe" role="listitem" aria-label="Physical Education">
+        <div class="subject-card-icon">🏃</div>
+        <div class="subject-card-name">PHYSICAL<br/>EDUCATION</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 60%;"></div></div>
+        <div class="subject-card-stat">Gym Hours Logged</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-arts" role="listitem" aria-label="Arts">
+        <div class="subject-card-icon">🎨</div>
+        <div class="subject-card-name">ARTS</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 40%;"></div></div>
+        <div class="subject-card-stat">Gallery Pieces Created</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-english" role="listitem" aria-label="English">
+        <div class="subject-card-icon">📝</div>
+        <div class="subject-card-name">ENGLISH</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 65%;"></div></div>
+        <div class="subject-card-stat">Novels Read</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-math" role="listitem" aria-label="Mathematics">
+        <div class="subject-card-icon">π</div>
+        <div class="subject-card-name">MATHEMATICS</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 85%;"></div></div>
+        <div class="subject-card-stat">Problems Mastered</div>
+      </button>
+
+      <button class="subject-card glass-panel-card" id="subj-music" role="listitem" aria-label="Music">
+        <div class="subject-card-icon">🎵</div>
+        <div class="subject-card-name">MUSIC</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 25%;"></div></div>
+        <div class="subject-card-stat">Compositions Written</div>
+      </button>
+
+    </div>
+
+
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav glass-nav" aria-label="Main navigation">
+    <button class="nav-btn" onclick="navigateTo('screen-home')" aria-label="Home"><span class="nav-icon">⌂</span><span class="nav-label">HOME</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn active" onclick="navigateTo('screen-subjects')" aria-label="Studies"><span class="nav-icon">📖</span><span class="nav-label">STUDIES</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" aria-label="World"><span class="nav-icon">🗺️</span><span class="nav-label">WORLD</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" aria-label="Profile"><span class="nav-icon">◉</span><span class="nav-label">PROFILE</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" onclick="navigateTo('screen-home')" aria-label="Exit"><span class="nav-icon">→</span><span class="nav-label">EXIT</span></button>
+  </nav>
+</div>
+
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     SCREEN 3: CHAPTER SELECTION
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div id="screen-chapters" class="screen" style="background-image: url('assets/Future verion lowres.jpg');">
+  <div class="bg-overlay"></div>
+  <div class="particles" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="screen-content chapters-content">
+
+    <!-- Breadcrumb header -->
+    <div class="page-header-card glass-pill breadcrumb-pill" role="heading" aria-level="1">
+      <span class="page-title-text">(Science: Chapter Selection)</span>
+    </div>
+
+    <!-- Chapter grid -->
+    <div class="chapters-grid" role="list" aria-label="Select a chapter">
+
+      <button class="chapter-card glass-panel-card" onclick="navigateTo('screen-chapter-detail', {chapterId:'light-shadows'})" id="ch-light-shadows" role="listitem" aria-label="Chapter 1: Light and Shadows">
+        <div class="chapter-card-icon">💡</div>
+        <div class="chapter-card-number">LIGHT AND<br/>SHADOWS</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 100%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" onclick="navigateTo('screen-chapter-detail', {chapterId:'space-solar'})" id="ch-space-solar" role="listitem" aria-label="Chapter 2: Space and Solar System">
+        <div class="chapter-card-icon">🪐</div>
+        <div class="chapter-card-number">SPACE AND<br/>SOLAR SYSTEM</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 45%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-skeletal" role="listitem" aria-label="Chapter 3: Skeletal System">
+        <div class="chapter-card-icon">🦴</div>
+        <div class="chapter-card-number">SKELETAL<br/>SYSTEM</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-food-health" role="listitem" aria-label="Chapter 4: Food and Health">
+        <div class="chapter-card-icon">🍎</div>
+        <div class="chapter-card-number">FOOD AND<br/>HEALTH</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-pollination" role="listitem" aria-label="Chapter 5: Plant Reproduction - Pollination">
+        <div class="chapter-card-icon">🌸</div>
+        <div class="chapter-card-number">PLANT REPRO.<br/>— POLLINATION</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-fertilization" role="listitem" aria-label="Chapter 6: Plant Reproduction - Fertilization">
+        <div class="chapter-card-icon">🌱</div>
+        <div class="chapter-card-number">PLANT REPRO.<br/>— FERTILIZATION</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-solids" role="listitem" aria-label="Chapter 7: Solids, Liquids, Gases">
+        <div class="chapter-card-icon">💧</div>
+        <div class="chapter-card-number">SOLIDS, LIQUIDS,<br/>GASES</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+      <button class="chapter-card glass-panel-card" id="ch-interdependence" role="listitem" aria-label="Chapter 8: Interdependence">
+        <div class="chapter-card-icon">🕸️</div>
+        <div class="chapter-card-number">INTER-<br/>DEPENDENCE</div>
+        <div class="card-progress-track"><div class="card-progress-fill" style="width: 0%;"></div></div>
+        <div class="chapter-card-status available">● Available</div>
+      </button>
+
+    </div>
+
+
+  </div>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav glass-nav" aria-label="Main navigation">
+    <button class="nav-btn" onclick="navigateTo('screen-home')" aria-label="Home"><span class="nav-icon">⌂</span><span class="nav-label">HOME</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn active" onclick="navigateTo('screen-subjects')" aria-label="Studies"><span class="nav-icon">📖</span><span class="nav-label">STUDIES</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" aria-label="World"><span class="nav-icon">🗺️</span><span class="nav-label">WORLD</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" aria-label="Profile"><span class="nav-icon">◉</span><span class="nav-label">PROFILE</span></button>
+    <div class="nav-divider"></div>
+    <button class="nav-btn" onclick="navigateTo('screen-home')" aria-label="Exit"><span class="nav-icon">→</span><span class="nav-label">EXIT</span></button>
+  </nav>
+</div>
+
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+     SCREEN 4: CHAPTER DETAIL â€” styled from Solar system.html
+     â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div id="screen-chapter-detail" class="screen" style="background-image: url('assets/chapter background lowres.jpg');">
+  <div class="bg-overlay dark-overlay"></div>
+
+  <div class="screen-content chapter-detail-content" style="height:100%; display:flex; flex-direction:column; width:100%; box-sizing:border-box;">
+
+    <!-- Chapter header (Solar system.html style â€” pill + accent line) -->
+    <div class="solar-chapter-header" role="heading" aria-level="1">
+      <div class="solar-chapter-accent-line"></div>
+      <h2 id="detail-title" class="solar-chapter-title">LIGHT AND SHADOWS</h2>
+    </div>
+
+    <!-- Main content area -->
+    <div class="chapter-main-panel glass-panel-card">
+
+      <!-- â”€â”€ Tab Navigation (Solar system.html style â€” square cards) â”€â”€ -->
+      <div id="chapter-nav-tabs" class="chapter-tab-nav" role="tablist" aria-label="Chapter sections">
+
+        <button class="sol-tab active-tab" id="tab-experience" data-tab="experience" role="tab" aria-selected="true" aria-controls="tabpanel-experience">
+          <div class="sol-tab-icon-wrap sol-tab-active-icon" id="detail-tab-icon-wrap">
+            <i class="ph ph-planet" id="detail-tab-phosphor-icon"></i>
+          </div>
+          <span class="sol-tab-label">Chapter Experience</span>
+        </button>
+
+        <button class="sol-tab" id="tab-experiments" data-tab="experiments" role="tab" aria-selected="false" aria-controls="tabpanel-experiments">
+          <i class="ph ph-flask sol-tab-solo-icon"></i>
+          <span class="sol-tab-label">Experiments</span>
+        </button>
+
+        <button class="sol-tab" id="tab-quiz" data-tab="quiz" role="tab" aria-selected="false" aria-controls="tabpanel-quiz">
+          <i class="ph ph-list-checks sol-tab-solo-icon"></i>
+          <span class="sol-tab-label">Quiz</span>
+        </button>
+
+        <button class="sol-tab" id="tab-mixed-reality" data-tab="mixed-reality" role="tab" aria-selected="false" aria-controls="tabpanel-mixed-reality">
+          <i class="ph ph-goggles sol-tab-solo-icon"></i>
+          <span class="sol-tab-label">Mixed Reality</span>
+        </button>
+
+        <button class="sol-tab" id="tab-stories" data-tab="stories" role="tab" aria-selected="false" aria-controls="tabpanel-stories">
+          <i class="ph ph-book-open-text sol-tab-solo-icon"></i>
+          <span class="sol-tab-label">Stories</span>
+        </button>
+
+      </div>
+
+      <!-- â”€â”€ Tab Panels â”€â”€ -->
+      <div class="tab-panels-area">
+
+        <!-- Chapter Experience (with Three.js canvas like Solar system.html) -->
+        <div id="tabpanel-experience" class="sol-tab-panel active" role="tabpanel" aria-labelledby="tab-experience">
+          <div class="sol-experience-layout">
+
+            <!-- 3D Canvas (Solar system.html pattern) -->
+            <div class="sol-canvas-wrap">
+              <div id="canvas-container" class="sol-canvas-inner"></div>
+              <div id="canvas-loading" class="sol-canvas-loading">
+                <div class="sol-loading-spinner"></div>
+                <span>Initializing 3D Engine...</span>
+              </div>
+            </div>
+
+            <!-- Description + Action (Solar system.html pattern) -->
+            <div class="sol-description-wrap">
+              <p id="detail-description" class="sol-description-text">
+                The light and shadow simulation model provides interactive exploration of fundamental optical principles. Visualize the formation of complex shadow patterns, examine umbra and penumbra regions, and observe how light propagates to form shadows based on object shape and distance.
+              </p>
+              <div style="display:flex; justify-content:flex-start;">
+                <button class="sol-start-btn" id="btn-start-journey" aria-label="Start Journey">
+                  Start Journey
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Experiments tab -->
+        <div id="tabpanel-experiments" class="sol-tab-panel" role="tabpanel" aria-labelledby="tab-experiments">
+          <div class="experiments-carousel-container">
+            <h2 class="experiments-carousel-title">Choose Experiments</h2>
+            <div class="carousel-wrapper">
+              <button class="carousel-nav left" onclick="scrollCarousel(-1)" aria-label="Scroll left">&#10094;</button>
+              <div class="experiments-carousel" id="experiments-carousel">
+
+                <!-- Main Target: Shadow Lab -->
+                <div class="experiment-card featured" onclick="openExperiment('Shadow_Lab.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #00d2ff, #3a7bd5);">🌑</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Shadow Lab</div>
+                    <div class="experiment-author">by Platform</div>
+                    <div class="experiment-stats"><span>Latest!</span><span>♥ 50k</span></div>
+                  </div>
+                </div>
+                
+                <div class="experiment-card" onclick="openExperiment('placeholder1.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #b000ff, #5c00a3);">🧬</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Laser Bounce</div>
+                    <div class="experiment-author">by Edtech Lab</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 12k</span></div>
+                  </div>
+                </div>
+                
+                <div class="experiment-card" onclick="openExperiment('placeholder2.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #ff0073, #a10048);">🎯</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Optics Simulator</div>
+                    <div class="experiment-author">by Physics Team</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 21k</span></div>
+                  </div>
+                </div>
+
+                <div class="experiment-card" onclick="openExperiment('placeholder3.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #ff4e50, #f9d423);">🔥</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Thermal Dynamics</div>
+                    <div class="experiment-author">by Core</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 34k</span></div>
+                  </div>
+                </div>
+
+                <div class="experiment-card" onclick="openExperiment('placeholder4.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #8E2DE2, #4A00E0);">⚡</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Circuit Builder</div>
+                    <div class="experiment-author">by Lab Team</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 28k</span></div>
+                  </div>
+                </div>
+
+                <div class="experiment-card" onclick="openExperiment('placeholder5.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #00C9FF, #92FE9D);">🧪</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Chemistry Mix</div>
+                    <div class="experiment-author">by Science Crew</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 19k</span></div>
+                  </div>
+                </div>
+
+                <div class="experiment-card" onclick="openExperiment('placeholder6.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #f12711, #f5af19);">☄️</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Meteor Crash</div>
+                    <div class="experiment-author">by Space Dept</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 42k</span></div>
+                  </div>
+                </div>
+
+                <div class="experiment-card" onclick="openExperiment('placeholder7.html')">
+                  <div class="experiment-card-img" style="background: linear-gradient(135deg, #FF416C, #FF4B2B);">🔊</div>
+                  <div class="experiment-card-info">
+                    <div class="experiment-title">Sound Waves</div>
+                    <div class="experiment-author">by Audio Lab</div>
+                    <div class="experiment-stats"><span>Ready</span><span>♥ 27k</span></div>
+                  </div>
+                </div>
+
+              </div>
+              <button class="carousel-nav right" onclick="scrollCarousel(1)" aria-label="Scroll right">&#10095;</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quiz â€” Available -->
+        <div id="tabpanel-quiz" class="sol-tab-panel" role="tabpanel" aria-labelledby="tab-quiz">
+          <div class="sol-unlocked-panel" style="display:flex; align-items:center; justify-content:center; height:100%;">
+            <div class="glass-panel-card" style="padding: 50px 80px; display: flex; flex-direction: column; align-items: center; border-radius: 24px; position:relative; overflow:hidden;">
+              <!-- decorative bg glow -->
+              <div style="position:absolute; top:-50%; left:-50%; width:200%; height:200%; background: radial-gradient(circle at center, rgba(34,211,238,0.15) 0%, transparent 50%); z-index:0; pointer-events:none;"></div>
+              
+              <div style="z-index:1; position:relative; display:flex; flex-direction:column; align-items:center;">
+                  <div style="width: 90px; height: 90px; border-radius: 50%; background: linear-gradient(135deg, rgba(34,211,238,0.1), rgba(59,130,246,0.1)); display: flex; align-items: center; justify-content: center; margin-bottom: 24px; border: 1px solid rgba(34,211,238,0.3); box-shadow: 0 0 30px rgba(34,211,238,0.2);">
+                    <i class="ph ph-exam" style="font-size:3.5rem; color:#22d3ee; filter: drop-shadow(0 0 10px rgba(34,211,238,0.5));"></i>
+                  </div>
+                  
+                  <h3 class="sol-unlocked-title" style="font-size:2.2rem; font-weight:700; margin-bottom:12px; color:var(--text-primary); letter-spacing:0.5px;">Interactive Quiz</h3>
+                  <p class="sol-unlocked-desc" style="color:var(--text-muted); margin-bottom:30px; font-size:1.15rem;">Test your mastery on Light and Shadows.</p>
+                  
+                  <div style="display:flex; gap:16px; margin-bottom:40px; flex-wrap: wrap; justify-content:center;">
+                      <span style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; color: #cbd5e1; display:flex; align-items:center; gap:8px;">
+                          <i class="ph ph-list-numbers" style="color:#22d3ee;"></i> 10 Questions
+                      </span>
+                      <span style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; color: #cbd5e1; display:flex; align-items:center; gap:8px;">
+                          <i class="ph ph-clock" style="color:#22d3ee;"></i> 15 Mins
+                      </span>
+                      <span style="background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.08); padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; color: #cbd5e1; display:flex; align-items:center; gap:8px;">
+                          <i class="ph ph-star" style="color:#fbbf24;"></i> +50 XP
+                      </span>
+                  </div>
+
+                  <button class="sol-start-btn" onclick="openExperiment('quiz.html')" aria-label="Start Quiz" style="padding:16px 48px; font-size:1.2rem; font-weight:600; background: linear-gradient(135deg, #06b6d4, #3b82f6); color:white; border:none; border-radius:16px; cursor:pointer; box-shadow: 0 10px 30px -5px rgba(6, 182, 212, 0.5); transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-3px) scale(1.02)'; this.style.boxShadow='0 20px 40px -5px rgba(6, 182, 212, 0.7)'" onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 30px -5px rgba(6, 182, 212, 0.5)'">
+                    Start Quiz <i class="ph ph-arrow-right" style="margin-left:8px; font-weight:bold;"></i>
+                  </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mixed Reality â€” locked -->
+        <div id="tabpanel-mixed-reality" class="sol-tab-panel" role="tabpanel" aria-labelledby="tab-mixed-reality">
+          <div class="sol-locked-panel">
+            <i class="ph ph-lock-key sol-lock-icon"></i>
+            <h3 class="sol-locked-title">Content Locked</h3>
+            <p class="sol-locked-desc">Complete the Chapter Experience and Experiments to unlock this section.</p>
+          </div>
+        </div>
+
+        <!-- Stories -->
+        <div id="tabpanel-stories" class="sol-tab-panel" role="tabpanel" aria-labelledby="tab-stories">
+            <style>
+                .story-list-card {
+                    display:flex; 
+                    background:rgba(0,0,0,0.3); 
+                    border:1px solid rgba(255,255,255,0.25); 
+                    border-bottom: 2px solid rgba(34,211,238,0.4); /* Cyan accent line from ref image */
+                    border-radius:24px; 
+                    overflow:hidden; 
+                    cursor:pointer; 
+                    transition:all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+                    align-items: stretch;
+                    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                    min-height: 200px;
+                }
+                .story-list-card:hover {
+                    background:rgba(20,25,35,0.6);
+                    border-color:rgba(34,211,238,0.6);
+                    border-bottom-color: #22d3ee; 
+                    box-shadow: -10px 20px 40px rgba(0,0,0,0.4), 0 0 40px rgba(34,211,238,0.2);
+                }
+                .story-thumb {
+                    transition:transform 0.7s cubic-bezier(0.16, 1, 0.3, 1), filter 0.4s ease;
+                }
+                .story-list-card:hover .story-thumb {
+                    filter:brightness(1.15);
+                }
+                .play-icon {
+                    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.3s;
+                }
+                .story-list-card:hover .play-icon {
+                    transform:translate(-50%, -50%) scale(1.2);
+                    color:#22d3ee !important;
+                }
+                .card-glow {
+                    transition:opacity 0.4s ease;
+                }
+                .story-list-card:hover .card-glow {
+                    opacity: 1 !important;
+                }
+                .watch-text {
+                    opacity: 0;
+                    transform: translateX(-15px);
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .story-list-card:hover .watch-text {
+                    opacity: 1;
+                    transform: translateX(0);
+                }
+                .no-scrollbar::-webkit-scrollbar {
+                    display: none;
+                }
+                .no-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
+                }
+                .stories-panel {
+                    padding:24px 60px;
+                    display:flex;
+                    flex-direction:column;
+                    height:100%;
+                }
+                .stories-stack {
+                    flex-grow:1;
+                    display:flex;
+                    flex-direction:column;
+                    min-height:0;
+                }
+                .stories-arrow {
+                    display:flex;
+                    justify-content:center;
+                    z-index:10;
+                    flex-shrink:0;
+                }
+                .stories-arrow--top {
+                    padding-bottom:12px;
+                }
+                .stories-arrow--bottom {
+                    padding-top:12px;
+                }
+                .stories-arrow-btn {
+                    border-radius:50%;
+                    width:44px;
+                    height:44px;
+                    display:flex;
+                    align-items:center;
+                    justify-content:center;
+                    color:white;
+                    cursor:pointer;
+                    backdrop-filter:blur(8px);
+                    border:1px solid rgba(34,211,238,0.5);
+                    transition:all 0.3s;
+                }
+                .stories-arrow-btn--up {
+                    background:linear-gradient(135deg, rgba(34,211,238,0.2), rgba(0,0,0,0.8));
+                    box-shadow:0 5px 15px rgba(0,0,0,0.5);
+                }
+                .stories-arrow-btn--down {
+                    background:linear-gradient(315deg, rgba(34,211,238,0.2), rgba(0,0,0,0.8));
+                    box-shadow:0 -5px 15px rgba(0,0,0,0.5);
+                }
+                .stories-scroll-container {
+                    display:flex;
+                    flex-direction:column;
+                    gap:24px;
+                    overflow-y:auto;
+                    overflow-x:hidden;
+                    padding:5px 20px;
+                    margin:0 -20px;
+                    scroll-behavior:smooth;
+                    max-height:450px;
+                }
+                @media (min-width: 1400px) {
+                    .stories-panel {
+                        padding:28px 76px 18px;
+                    }
+                    .stories-scroll-container {
+                        max-height:min(720px, calc(100vh - 390px));
+                    }
+                    .stories-arrow--bottom {
+                        margin-top:auto;
+                        padding-top:28px;
+                    }
+                }
+                @media (min-width: 2000px) {
+                    .stories-panel {
+                        padding:32px 88px 22px;
+                    }
+                    .stories-scroll-container {
+                        max-height:min(780px, calc(100vh - 420px));
+                        gap:28px;
+                    }
+                    .stories-arrow--bottom {
+                        padding-top:34px;
+                    }
+                }
+            </style>
+
+            <div class="stories-panel">
+                 
+                <div class="stories-stack">
+                    <!-- Up Arrow -->
+                    <div class="stories-arrow stories-arrow--top">
+                        <button onclick="document.getElementById('stories-scroll-container').scrollBy({top: -300, behavior: 'smooth'})" class="stories-arrow-btn stories-arrow-btn--up" onmouseover="this.style.transform='scale(1.1)'; this.style.borderColor='#22d3ee';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(34,211,238,0.5)';">
+                            <i class="ph-bold ph-caret-up" style="font-size:1.5rem; color:#22d3ee;"></i>
+                        </button>
+                    </div>
+
+                    <div id="stories-scroll-container" class="stories-scroll-container no-scrollbar">
+                    
+                    <!-- Video 1 -->
+                    <div onclick="openStoryVideo('https://www.youtube.com/embed/fy7eoMef3e8?autoplay=1&rel=0&modestbranding=1&showinfo=0')" class="story-list-card">
+                        <!-- Left Image -->
+                        <div style="flex: 0 0 320px; position:relative; overflow:hidden;">
+                            <img src="https://img.youtube.com/vi/fy7eoMef3e8/hqdefault.jpg" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" class="story-thumb" alt="Shadows and Light">
+                            <div style="position:absolute; inset:0; background:linear-gradient(to right, transparent 50%, rgba(0,0,0,0.9) 100%); z-index:1;"></div>
+                            <i class="ph-fill ph-play-circle play-icon" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:4.5rem; color:rgba(255,255,255,0.9); filter:drop-shadow(0 5px 15px rgba(0,0,0,0.8)); z-index:2;"></i>
+                        </div>
+                        <!-- Right Details -->
+                        <div style="flex: 1; padding:30px 40px; display:flex; flex-direction:column; justify-content:center; position:relative;">
+                            <div style="position:absolute; inset:0; background:radial-gradient(ellipse at left, rgba(34,211,238,0.08) 0%, transparent 60%); opacity:0;" class="card-glow"></div>
+                            
+                            <div style="display:flex; gap:12px; margin-bottom:12px; z-index:1;">
+                                <span style="padding:4px 12px; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3); border-radius:12px; color:#22d3ee; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Documentary</span>
+                                <span style="padding:4px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#cbd5e1; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px;"><i class="ph ph-clock"></i> 5:21</span>
+                            </div>
+                            
+                            <h4 style="font-size:1.6rem; font-weight:700; color:white; margin-bottom:12px; z-index:1; letter-spacing:0.5px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">Shadows and Light Explained</h4>
+                            <p style="color:#94a3b8; font-size:1rem; line-height:1.6; max-width:90%; margin-bottom:20px; z-index:1;">Dive deep into the magical interplay between light sources and opaque objects. A beautifully animated introduction to the science of optics.</p>
+                            
+                            <div style="display:flex; align-items:center; gap:8px; color:#22d3ee; font-weight:700; font-size:1rem; z-index:1;">
+                                Watch Experience <i class="ph ph-arrow-right" style="font-weight:bold;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video 2 -->
+                    <div onclick="openStoryVideo('https://www.youtube.com/embed/4vUozykivNA?autoplay=1&rel=0&modestbranding=1&showinfo=0')" class="story-list-card">
+                        <!-- Left Image -->
+                        <div style="flex: 0 0 320px; position:relative; overflow:hidden;">
+                            <img src="https://img.youtube.com/vi/4vUozykivNA/hqdefault.jpg" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" class="story-thumb" alt="The Science of Shadows">
+                            <div style="position:absolute; inset:0; background:linear-gradient(to right, transparent 50%, rgba(0,0,0,0.9) 100%); z-index:1;"></div>
+                            <i class="ph-fill ph-play-circle play-icon" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:4.5rem; color:rgba(255,255,255,0.9); filter:drop-shadow(0 5px 15px rgba(0,0,0,0.8)); z-index:2;"></i>
+                        </div>
+                        <!-- Right Details -->
+                        <div style="flex: 1; padding:30px 40px; display:flex; flex-direction:column; justify-content:center; position:relative;">
+                            <div style="position:absolute; inset:0; background:radial-gradient(ellipse at left, rgba(34,211,238,0.08) 0%, transparent 60%); opacity:0;" class="card-glow"></div>
+                            
+                            <div style="display:flex; gap:12px; margin-bottom:12px; z-index:1;">
+                                <span style="padding:4px 12px; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3); border-radius:12px; color:#22d3ee; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Explore</span>
+                                <span style="padding:4px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#cbd5e1; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px;"><i class="ph ph-clock"></i> 3:36</span>
+                            </div>
+                            
+                            <h4 style="font-size:1.6rem; font-weight:700; color:white; margin-bottom:12px; z-index:1; letter-spacing:0.5px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">The Science of Shadows</h4>
+                            <p style="color:#94a3b8; font-size:1rem; line-height:1.6; max-width:90%; margin-bottom:20px; z-index:1;">Learn how different light angles and intensities stretch and morph shadows, uncovering the geometry behind visual perception.</p>
+                            
+                            <div style="display:flex; align-items:center; gap:8px; color:#22d3ee; font-weight:700; font-size:1rem; z-index:1;">
+                                Watch Experience <i class="ph ph-arrow-right" style="font-weight:bold;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video 3 -->
+                    <div onclick="openStoryVideo('https://www.youtube.com/embed/cDaWohR_DVo?autoplay=1&rel=0&modestbranding=1&showinfo=0')" class="story-list-card">
+                        <!-- Left Image -->
+                        <div style="flex: 0 0 320px; position:relative; overflow:hidden;">
+                            <img src="https://img.youtube.com/vi/cDaWohR_DVo/hqdefault.jpg" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" class="story-thumb" alt="How Do We See Things?">
+                            <div style="position:absolute; inset:0; background:linear-gradient(to right, transparent 50%, rgba(0,0,0,0.9) 100%); z-index:1;"></div>
+                            <i class="ph-fill ph-play-circle play-icon" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:4.5rem; color:rgba(255,255,255,0.9); filter:drop-shadow(0 5px 15px rgba(0,0,0,0.8)); z-index:2;"></i>
+                        </div>
+                        <!-- Right Details -->
+                        <div style="flex: 1; padding:30px 40px; display:flex; flex-direction:column; justify-content:center; position:relative;">
+                            <div style="position:absolute; inset:0; background:radial-gradient(ellipse at left, rgba(34,211,238,0.08) 0%, transparent 60%); opacity:0;" class="card-glow"></div>
+                            
+                            <div style="display:flex; gap:12px; margin-bottom:12px; z-index:1;">
+                                <span style="padding:4px 12px; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3); border-radius:12px; color:#22d3ee; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Lesson</span>
+                                <span style="padding:4px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#cbd5e1; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px;"><i class="ph ph-clock"></i> 3:58</span>
+                            </div>
+                            
+                            <h4 style="font-size:1.6rem; font-weight:700; color:white; margin-bottom:12px; z-index:1; letter-spacing:0.5px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">How Do We See Things?</h4>
+                            <p style="color:#94a3b8; font-size:1rem; line-height:1.6; max-width:90%; margin-bottom:20px; z-index:1;">An engaging visual breakthrough exploring reflection, the human eye, and the biological mechanics of how light turns into vision.</p>
+                            
+                            <div style="display:flex; align-items:center; gap:8px; color:#22d3ee; font-weight:700; font-size:1rem; z-index:1;">
+                                Watch Experience <i class="ph ph-arrow-right" style="font-weight:bold;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video 4 -->
+                    <div onclick="openStoryVideo('https://www.youtube.com/embed/fvKpqIS9k9Y?autoplay=1&rel=0&modestbranding=1&showinfo=0')" class="story-list-card">
+                        <!-- Left Image -->
+                        <div style="flex: 0 0 320px; position:relative; overflow:hidden;">
+                            <img src="https://img.youtube.com/vi/fvKpqIS9k9Y/hqdefault.jpg" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" class="story-thumb" alt="Characteristics of Light">
+                            <div style="position:absolute; inset:0; background:linear-gradient(to right, transparent 50%, rgba(0,0,0,0.9) 100%); z-index:1;"></div>
+                            <i class="ph-fill ph-play-circle play-icon" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:4.5rem; color:rgba(255,255,255,0.9); filter:drop-shadow(0 5px 15px rgba(0,0,0,0.8)); z-index:2;"></i>
+                        </div>
+                        <!-- Right Details -->
+                        <div style="flex: 1; padding:30px 40px; display:flex; flex-direction:column; justify-content:center; position:relative;">
+                            <div style="position:absolute; inset:0; background:radial-gradient(ellipse at left, rgba(34,211,238,0.08) 0%, transparent 60%); opacity:0;" class="card-glow"></div>
+                            
+                            <div style="display:flex; gap:12px; margin-bottom:12px; z-index:1;">
+                                <span style="padding:4px 12px; background:rgba(34,211,238,0.1); border:1px solid rgba(34,211,238,0.3); border-radius:12px; color:#22d3ee; font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:1px;">Science Lab</span>
+                                <span style="padding:4px 12px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1); border-radius:12px; color:#cbd5e1; font-size:0.75rem; font-weight:600; display:flex; align-items:center; gap:4px;"><i class="ph ph-clock"></i> 10:30</span>
+                            </div>
+                            
+                            <h4 style="font-size:1.6rem; font-weight:700; color:white; margin-bottom:12px; z-index:1; letter-spacing:0.5px; text-shadow:0 2px 4px rgba(0,0,0,0.5);">Characteristics of Light</h4>
+                            <p style="color:#94a3b8; font-size:1rem; line-height:1.6; max-width:90%; margin-bottom:20px; z-index:1;">A comprehensive breakdown of the core properties of light, including straight-line propagation, speeds, beams, and rays.</p>
+                            
+                            <div style="display:flex; align-items:center; gap:8px; color:#22d3ee; font-weight:700; font-size:1rem; z-index:1;">
+                                Watch Experience <i class="ph ph-arrow-right" style="font-weight:bold;"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Down Arrow -->
+                <div class="stories-arrow stories-arrow--bottom">
+                    <button onclick="document.getElementById('stories-scroll-container').scrollBy({top: 300, behavior: 'smooth'})" class="stories-arrow-btn stories-arrow-btn--down" onmouseover="this.style.transform='scale(1.1)'; this.style.borderColor='#22d3ee';" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='rgba(34,211,238,0.5)';">
+                        <i class="ph-bold ph-caret-down" style="font-size:1.5rem; color:#22d3ee;"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        </div> <!-- Closes #tabpanel-stories -->
+
+    </div> <!-- Closes .tab-panels-area -->
+    </div> <!-- Closes .chapter-main-panel glass-panel-card (tabs and content area) -->
+
+    <!-- Navigation Buttons -->
+    <div class="sol-bottom-nav-row">
+      <button class="sol-nav-btn" onclick="navigateTo('screen-chapters')" id="btn-back-chapter" aria-label="Go back">Back</button>
+      <button class="sol-nav-btn" id="btn-next-chapter" aria-label="Next chapter">Next Chapter</button>
+    </div>
+
+  </div> <!-- Closes .screen-content chapter-detail-content -->
+</div> <!-- Closes .screen-chapter-detail -->
+
+
+<!-- SUB-APP OVERLAY -->
+<div id="app-overlay" class="app-overlay app-overlay--story hidden" role="dialog" aria-modal="true" aria-label="Chapter content viewer">
+  <div id="app-overlay-shell" class="app-overlay-shell">
+    <button id="close-app-btn" class="app-overlay-close" type="button" aria-label="Close overlay">
+      <i class="ph ph-x"></i>
+    </button>
+    <div id="app-overlay-frame" class="app-overlay-frame">
+      <div id="iframe-loading-dots" class="iframe-loading-overlay hidden">
+        <div class="iframe-loading-dot"></div>
+        <div class="iframe-loading-dot"></div>
+        <div class="iframe-loading-dot"></div>
+      </div>
+      <iframe id="app-iframe" class="app-iframe" allow="fullscreen" title="Interactive Content"></iframe>
+    </div>
+  </div>
+</div>
+
+<script src="script.js?v=16"></script>
+</body>
+</html>
