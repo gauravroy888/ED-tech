@@ -131,6 +131,10 @@ document.addEventListener('DOMContentLoaded', function () {
     '.carousel-nav {',
     '  min-width:  56px !important;',
     '  min-height: 56px !important;',
+    '}',
+    'html, body {',
+    '  -webkit-text-size-adjust: 100%;',
+    '  text-size-adjust: 100%;',
     '}'
   ].join('\n');
   document.head.appendChild(style);
@@ -186,16 +190,35 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var scaleRatio = Math.min(winW / baseW, winH / baseH);
 
-    // Apply zoom on body to proportionally scale everything identically.
-    // Works perfectly in Chromium / WebViews on Smartboards and Tablet WebViews.
+    // Apply zoom or transform to proportionally scale everything identically.
+    // CSS zoom has severe bugs in iOS Safari (auto-optical zoom, text-sizing blowout),
+    // so we use transform for Apple touch devices, and zoom for Android/Desktop WebViews.
+    var isSafariTouch = /iPad|iPhone|Mac/i.test(navigator.userAgent) && navigator.maxTouchPoints > 0;
+
     if (scaleRatio < 1.0) {
-      document.body.style.zoom = scaleRatio;
+      if (isSafariTouch) {
+        document.body.style.transform = 'scale(' + scaleRatio + ')';
+        document.body.style.transformOrigin = 'top left';
+        document.body.style.zoom = '';
+      } else {
+        document.body.style.zoom = scaleRatio;
+        document.body.style.transform = '';
+      }
       document.documentElement.style.setProperty('--ifp-zoom', scaleRatio);
+      
+      // CRITICAL: We must adjust BOTH width and height. If width is left at 100vw but 
+      // the container is zoomed/scaled down, iPad Safari auto-zooms strictly to fill the 
+      // horizontal void, resulting in the massive cropped UI bug.
+      document.body.style.width  = (100 / scaleRatio) + 'vw';
       document.body.style.height = (100 / scaleRatio) + 'vh';
+      document.body.style.overflowX = 'hidden';
     } else {
-      document.body.style.zoom = '';          // Reset — let CSS handle ≥100% cases
+      document.body.style.zoom = '';   
+      document.body.style.transform = '';
       document.documentElement.style.setProperty('--ifp-zoom', 1.0);
+      document.body.style.width  = '100vw';
       document.body.style.height = '100vh';
+      document.body.style.overflowX = '';
     }
   };
 
