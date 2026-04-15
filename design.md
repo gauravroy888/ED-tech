@@ -7,11 +7,27 @@ This document tracks all core responsive design decisions, scaling algorithms, p
 ## 1. Core Scaling & Resolution Philosophy
 **"Design for 1080p, Scale for All"**
 The UI is visually built targeting a standard `1920x1080` pixel canvas. Rather than relying on exhaustive CSS media queries to resize every button for every possible resolution, the platform relies on a mathematics-based scaling engine located in `perf_optimizer.js`.
-*   The script calculates: `scaleRatio = Math.min(winW / 1920, winH / 1080)`.
+*   The script calculates: `scaleRatio = Math.min(winW / baseW, winH / baseH)`.
 *   If the screen is smaller (e.g., a 1280x720 Smartboard), the script applies `document.body.style.zoom = scaleRatio`.
-*   This approach ensures visually stunning proportions (such as perfectly sized tabs, buttons, and typography) remain physically scaled across varying displays without manual recalculation.
+*   This approach ensures visually stunning proportions remain physically scaled across varying displays without manual recalculation.
 
----
+### 1.1 Tablet-Aware Base Resolution (Added: April 2026)
+The scaler in `perf_optimizer.js` now detects device category before choosing the base canvas, so the zoom ratio lands perfectly for each device class:
+
+| Device Category | Detection Rule | Base Canvas | Typical Scale |
+|---|---|---|---|
+| **16:9 Smartboard / Desktop** | Default (none of below) | 1920 × 1080 | ~0.67 on 720p |
+| **Landscape Tablet (4:3 / 16:10)** | Height 700–950px AND Width 700–1280px AND aspect < 1.65 | **1366 × 768** | ~0.96–1.0 ✅ |
+| **Portrait Tablet (iPad, Lenovo)** | Portrait orientation AND width 600–1100px | **820 × 1180** | ~1.0 ✅ |
+
+**Targeted tablet models:**
+*   OnePlus Pad Lite / Pad Go 2 (~1200×753 CSS landscape)
+*   Redmi Pad 2 (~1200×750 CSS landscape)
+*   Apple iPad 11" (~1190×834 landscape, 834×1190 portrait)
+*   Lenovo IdeaTab (~1200×752 landscape)
+*   Xiaomi Pad 8 (~1200×753 landscape)
+
+
 
 ## 2. Dealing with the "Double-Shrink" Viewport Bug
 **The Problem:** Because CSS viewport units (`100vw`, `100vh`) evaluate to the physical hardware dimensions *before* the body `zoom` factor is applied, attempting to use `100vw` inside a zoomed body results in a container that shrinks twice. This leaves massive black, letterboxed borders on the edges of the screen.

@@ -34,6 +34,8 @@
     <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- IFP Performance Optimizer: tablet-aware zoom scaling, 4K pixel ratio cap -->
+    <script src="perf_optimizer.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -41,6 +43,30 @@
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+
+        /* ── Tablet-Specific Quiz Layout Overrides ─────────────────────────────────
+           Targets landscape tablets (≤1200px) and portrait slates (≤850px).
+           Ensures answer option grids don't over-shrink or over-crowd.
+        ────────────────────────────────────────────────────────────────────────── */
+        @media (max-width: 1200px) {
+            /* Reduce padding on outer wrapper for landscape tablets */
+            .quiz-container { padding: 1rem !important; }
+        }
+
+        /* Portrait tablet (e.g. iPad 11" portrait, OnePlus Pad Lite portrait) */
+        @media (max-width: 860px) and (orientation: portrait) {
+            /* Force single-column option grid so choices never wrap awkwardly */
+            .options-grid { grid-template-columns: 1fr !important; }
+            /* Increase option button height for fat-finger touch accuracy */
+            .option-btn { min-height: 64px !important; font-size: 1rem !important; }
+            /* Pull question text down a little — more breathing room */
+            .question-text { font-size: 1.1rem !important; line-height: 1.6 !important; }
+        }
+
+        /* Wide landscape tablets (16:10) — keep 2-col grid, just bump touch targets */
+        @media (min-width: 861px) and (max-width: 1200px) and (orientation: landscape) {
+            .option-btn { min-height: 56px !important; }
+        }
     </style>
 </head>
 <body class="bg-transparent">

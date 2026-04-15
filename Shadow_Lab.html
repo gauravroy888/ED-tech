@@ -49,8 +49,8 @@
         
         /* Track */
         input[type=range]::-webkit-slider-runnable-track {
-            width: 100%; height: 8px; cursor: pointer;
-            background: rgba(255, 255, 255, 0.1); border-radius: 4px;
+            width: 100%; height: 10px; cursor: pointer;
+            background: rgba(255, 255, 255, 0.1); border-radius: 5px;
             border: 1px solid rgba(255, 255, 255, 0.2);
             transition: all 0.2s ease;
         }
@@ -58,11 +58,11 @@
             background: rgba(255, 255, 255, 0.15);
         }
         
-        /* Thumb */
+        /* Thumb — enlarged to 36px hit-zone for tablet touch accuracy */
         input[type=range]::-webkit-slider-thumb {
-            height: 24px; width: 24px; border-radius: 50%;
+            height: 36px; width: 36px; border-radius: 50%;
             background: #7C9BFF; cursor: pointer;
-            -webkit-appearance: none; margin-top: -9px;
+            -webkit-appearance: none; margin-top: -13px;
             box-shadow: 0 0 10px rgba(124, 155, 255, 0.5);
             border: 2px solid #fff;
             transition: transform 0.1s ease;
@@ -72,8 +72,15 @@
         }
 
         /* Specific Thumb Colors */
-        #slider-light::-webkit-slider-thumb { background: #FCD34D; box-shadow: 0 0 15px rgba(252, 211, 77, 0.6); }
-        #slider-object::-webkit-slider-thumb { background: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); }
+        #slider-light::-webkit-slider-thumb { background: #FCD34D; box-shadow: 0 0 15px rgba(252, 211, 77, 0.6); border: 2px solid rgba(255,255,255,0.9); }
+        #slider-object::-webkit-slider-thumb { background: #38BDF8; box-shadow: 0 0 15px rgba(56, 189, 248, 0.6); border: 2px solid rgba(255,255,255,0.9); }
+
+        /* Portrait tablet: stack the optical bench above the shadow screen */
+        @media (orientation: portrait) and (max-width: 1100px) {
+            .lab-split { flex-direction: column !important; }
+            /* Give each panel a fixed height so neither is crushed */
+            .lab-split > * { flex: none !important; height: 45vw !important; min-height: 220px !important; }
+        }
 
         /* Grid Backgrounds */
         .bench-grid {
@@ -161,7 +168,7 @@
         </div>
 
         <!-- Visualization Split View -->
-        <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
+        <div class="flex-1 flex flex-col lg:flex-row gap-4 min-h-0 lab-split">
             
             <!-- Left: Optical Bench (Side Profile) -->
             <div class="flex-[2] bg-[#0A0F1A]/80 backdrop-blur-md border border-white/10 rounded-[24px] relative overflow-hidden flex flex-col bench-grid shadow-inner min-h-[250px]">

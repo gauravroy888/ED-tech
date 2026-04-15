@@ -136,33 +136,69 @@ document.addEventListener('DOMContentLoaded', function () {
   document.head.appendChild(style);
 }, { once: true });
 
-/* ── 6. EXACT RATIO SCALING (Zoom-based responsive) ───────────────────
-   Instead of squishing CSS, dynamically zoom the layout so it looks exactly 
-   like 1080p, but fits into any display resolution (like 1280x720). */
+/* ── 6. EXACT RATIO SCALING (Zoom-based responsive, tablet-aware) ────────
+   Design target: 1920×1080 (16:9 smartboard).
+   For tablets with different aspect ratios (4:3 iPads, 16:10 Android slates),
+   we select a smarter base resolution so the zoom lands at a comfortable scale —
+   not over-zoomed on a short 768px-tall iPad, nor under-zoomed on wide slates.
+
+   Tablet detection matrix (CSS pixels, landscape):
+     Xiaomi Pad 8 11.2" ~1200×753   → treat as 1200-base landscape
+     Redmi Pad 2  11"   ~1200×750   → same
+     OnePlus Pad Go 2   ~1340×840
+     Apple iPad 11" 4:3 ~1190×834  (portrait: 834×1190)
+     Lenovo IdeaTab     ~1200×752
+   All fall in the 750–900px HEIGHT landscape range. The existing 1080-base zoom
+   formula returns ~0.70 on these — everything looks fine but slightly small.
+   We boost to a base of ~1366×768 for short-landscape tablets so UI fills better.
+*/
 document.addEventListener('DOMContentLoaded', function () {
   var applyExactRatioScale = function() {
     var winW = window.innerWidth;
     var winH = window.innerHeight;
-    
-    var baseW = 1920;
-    var baseH = 1080;
-    
-    // How much do we need to scale to fit?
+
+    // —— Detect device category ——
+    var isPortrait     = winH > winW;
+    var aspectRatio    = winW / winH;            // landscape: ~1.3–1.78; portrait: 0.56–0.77
+    var isTabletHeight = winH >= 700 && winH <= 950;   // typical tablet landscape heights
+    var isTabletWidth  = winW >= 700 && winW <= 1280;  // tablet landscape widths
+
+    var baseW, baseH;
+
+    if (isPortrait && winW >= 600 && winW <= 1100) {
+      /* ── PORTRAIT TABLET (iPad 11", Lenovo in portrait)
+         Portrait base: use 820×1180 as the reference canvas.
+         This keeps the UI looking exactly like 1080p proportions rotated 90°. */
+      baseW = 820;
+      baseH = 1180;
+    } else if (isTabletHeight && isTabletWidth && aspectRatio < 1.65) {
+      /* ── LANDSCAPE TABLET, 4:3 or 16:10 aspect (Redmi Pad 2, iPad landscape, Lenovo)
+         These have ~750–850px height. Using 1366×768 base
+         gives a ~0.96–1.0 scale → fills screen perfectly without over-shrinking. */
+      baseW = 1366;
+      baseH = 768;
+    } else {
+      /* ── DEFAULT: 16:9 Smartboard / Desktop / Wide-screen
+         Everything looks like the designed 1080p target. */
+      baseW = 1920;
+      baseH = 1080;
+    }
+
     var scaleRatio = Math.min(winW / baseW, winH / baseH);
-    
-    // Apply zoom on body to proportionally scale everything identically
-    // Works perfectly in Chromium / WebViews on Smartboards
+
+    // Apply zoom on body to proportionally scale everything identically.
+    // Works perfectly in Chromium / WebViews on Smartboards and Tablet WebViews.
     if (scaleRatio < 1.0) {
       document.body.style.zoom = scaleRatio;
       document.documentElement.style.setProperty('--ifp-zoom', scaleRatio);
       document.body.style.height = (100 / scaleRatio) + 'vh';
     } else {
-      document.body.style.zoom = 1.0;
+      document.body.style.zoom = '';          // Reset — let CSS handle ≥100% cases
       document.documentElement.style.setProperty('--ifp-zoom', 1.0);
       document.body.style.height = '100vh';
     }
   };
-  
+
   window.addEventListener('resize', applyExactRatioScale);
   // Give it a tiny timeout on first load to ensure CSS is painted
   setTimeout(applyExactRatioScale, 10);

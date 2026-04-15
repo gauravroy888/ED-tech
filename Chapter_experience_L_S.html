@@ -27,6 +27,45 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <link rel="stylesheet" href="styles.css">
   <script src="perf_optimizer.js"></script>
+  <style>
+    /* ── Chapter Experience: Tablet Overrides ────────────────────────────────────
+       Ensures the 3D canvas + topic guide sidebar stack gracefully on portrait
+       tablets (iPad 11", OnePlus Pad Lite, Lenovo Tab P12, etc.).
+       The open-book 2D view already uses md:flex-row, so portrait stacking is
+       inherited — only the 3D panel and inner padding need explicit fixes.
+    ────────────────────────────────────────────────────────────────────────── */
+
+    /* Landscape tablet (≤1199px): trim the main card padding */
+    @media (max-width: 1199px) {
+      .glass-panel-card { padding: 1.25rem !important; }
+    }
+
+    /* Portrait tablet (≤900px): stack 3D canvas above the topic guide sidebar */
+    @media (max-width: 900px) and (orientation: portrait) {
+      /* The 3D split: canvas on top, sidebar below */
+      .chapter-3d-split {
+        flex-direction: column !important;
+      }
+      /* Give canvas a fixed portrait height so it never collapses */
+      .chapter-canvas-wrap {
+        min-height: 300px !important;
+        height: 42vw !important;
+      }
+      /* Sidebar becomes a horizontal scrollable row of subtopic chips */
+      .chapter-sidebar {
+        width: 100% !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        gap: 0.5rem !important;
+        padding-bottom: 0.25rem !important;
+      }
+      .chapter-sidebar h3 { display: none !important; } /* hide label — no space */
+      /* Nav arrows hidden on small portrait — use swipe instead */
+      .chapter-nav-arrow { display: none !important; }
+      /* Push topic dots closer */
+      .chapter-dot-row { gap: 0.5rem !important; }
+    }
+  </style>
 </head>
 
 <body class="bg-slate-950 m-0 p-0 overflow-hidden font-sans">
@@ -1210,7 +1249,7 @@
 
             <div className="w-full flex items-center gap-6">
 
-              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p - 1 + CHAPTER_DATA[language].length) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50">
+              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p - 1 + CHAPTER_DATA[language].length) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50 chapter-nav-arrow">
                 <ChevronLeft size={32} />
               </button>
 
@@ -1257,8 +1296,8 @@
 
                 {/* 3D MODE (Hidden when 2D is active, NOT unmounted) */}
                 <div className={`${is3DMode ? 'block' : 'hidden'} w-full`}>
-                  <div className="flex flex-col lg:flex-row gap-8 min-h-[400px]">
-                    <div className="flex-1 relative rounded-2xl border border-white/10 bg-black/40 overflow-hidden shadow-inner flex items-center justify-center min-h-[400px]">
+                  <div className="flex flex-col lg:flex-row gap-8 min-h-[400px] chapter-3d-split">
+                    <div className="flex-1 relative rounded-2xl border border-white/10 bg-black/40 overflow-hidden shadow-inner flex items-center justify-center min-h-[400px] chapter-canvas-wrap">
                       {!threeLoaded && <div className="absolute inset-0 flex items-center justify-center text-white/50 animate-pulse">{language === 'en' ? 'Loading 3D Engine...' : '3D इंजन लोड हो रहा है...'}</div>}
                       <div ref={canvasRef} className="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"></div>
                       <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-black/60 to-transparent pointer-events-none z-10"></div>
@@ -1269,7 +1308,7 @@
                         </button>
                       )}
                     </div>
-                    <div className="w-full lg:w-72 flex flex-col gap-3">
+                    <div className="w-full lg:w-72 flex flex-col gap-3 chapter-sidebar">
                       <h3 className="text-white/80 font-medium mb-2 uppercase tracking-wide text-sm px-2">{language === 'en' ? 'Interactive Guide' : 'इंटरएक्टिव गाइड'}</h3>
                       {activeTopic.subtopics.map((sub, idx) => {
                         const SubIcon = sub.icon;
@@ -1331,12 +1370,12 @@
 
               </div>
 
-              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p + 1) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50">
+              <button onClick={() => { playClickSound(); setActiveTopicIndex((p) => (p + 1) % CHAPTER_DATA[language].length); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className="hidden md:flex p-4 rounded-full bg-white/20 border-2 border-white/50 text-white shadow-[0_0_15px_rgba(255,255,255,0.2)] hover:bg-white/40 hover:scale-110 hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] transition-all backdrop-blur-md cursor-pointer z-50 chapter-nav-arrow">
                 <ChevronRight size={32} />
               </button>
             </div>
 
-            <div className="flex gap-3 items-center">
+            <div className="flex gap-3 items-center chapter-dot-row">
               {CHAPTER_DATA[language].map((_, idx) => (
                 <button key={idx} onClick={() => { playClickSound(); setActiveTopicIndex(idx); setActiveSubtopicIndex(0); bulbStateRef.current = true; setBulbOnUi(true); }} className={`transition-all duration-300 rounded-full cursor-pointer ${activeTopicIndex === idx ? 'w-8 h-2.5 bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]' : 'w-2.5 h-2.5 bg-white/30 hover:bg-white/50'}`} aria-label={`Go to topic ${idx + 1}`} />
               ))}

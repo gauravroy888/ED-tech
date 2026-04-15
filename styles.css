@@ -1279,33 +1279,203 @@ body.fullscreen-overlay-open #fullscreen-toggle {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   RESPONSIVE — TABLET / SMARTBOARD
+   RESPONSIVE — TABLET OPTIMIZATIONS
+   Targets: OnePlus Pad Lite, Redmi Pad 2, Apple iPad 11",
+            Lenovo IdeaTab, Xiaomi Pad 8, OnePlus Pad Go 2
+   Strategy: Same "Design for 1080p, Scale proportionally" rule.
+   All sizes maintain identical visual ratios as 1920×1080 —
+   only the zoom scale in perf_optimizer.js changes per device.
    ═══════════════════════════════════════════════════════════════ */
+
+/* ── TABLET LANDSCAPE — 1024–1199px wide (Xiaomi Pad 8, OnePlus Pad Go 2)
+       These are wide Android tablets, ~16:10. Slightly tighter than smartboard. */
 @media (max-width: 1199px) {
-  .subjects-grid, .chapters-grid { gap: 11px; }
-  .screen-content { padding: 18px 24px calc(var(--nav-height) + 14px); gap: 14px; }
-  .home-card { padding: 32px 32px; }
-  .sol-tab { width: 100px; height: 86px; }
+  :root { --nav-height: 62px; }
+
+  .subjects-grid, .chapters-grid {
+    gap: 11px;
+    width: 76%;
+    height: 72%;
+  }
+
+  .screen-content {
+    padding: 16px 22px calc(var(--nav-height) + 13px);
+    gap: 13px;
+    max-width: 1060px;
+  }
+
+  .home-card {
+    padding: 30px 30px;
+    max-width: 580px;
+    gap: 20px;
+  }
+
+  .sol-tab { width: 100px; height: 84px; gap: 6px; }
+  .sol-tab-label { font-size: 0.60rem; }
+  .sol-tab-solo-icon { font-size: 1.55rem; }
+  .chapter-tab-nav { gap: 9px; padding: 12px 14px 9px; }
+
+  .sol-tab-panel { padding: 16px 18px; }
+  .sol-description-text { font-size: clamp(0.76rem, 1.2vw, 0.90rem); }
+
+  .experiments-carousel-title { font-size: 1.45rem; margin-bottom: 18px; }
+  .carousel-wrapper { max-width: 900px; }
+  .experiments-carousel { max-width: 800px; gap: 22px; padding: 28px 24px; }
+  .experiment-card { width: 175px; height: 248px; }
+
+  .sol-bottom-nav-row { gap: 16px; margin-top: 10px; }
+  .sol-nav-btn { padding: 11px 36px; min-width: 130px; font-size: 0.86rem; }
+
+  .bottom-nav { max-width: 580px; }
+
+  .logo-pill { padding: 9px 22px; font-size: 0.76rem; }
+  .page-header-card { padding: 11px 36px; }
+  .curriculum-badge { top: 18px; right: 20px; font-size: 0.68rem; padding: 7px 15px; }
 }
 
+/* ── TABLET LANDSCAPE — 900–1024px wide (Redmi Pad 2 landscape, Lenovo Tab)
+       16:10 landscape; viewport is wide but shorter — critical fix for 4:3 iPads. */
+@media (max-width: 1024px) {
+  :root { --nav-height: 60px; }
+
+  .subjects-grid, .chapters-grid {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(2, 1fr);
+    gap: 10px;
+    width: 82%;
+    height: 68%;
+  }
+
+  .subject-card { padding: 14px 10px; gap: 8px; }
+  .subject-card-icon { font-size: clamp(2.2rem, 4vw, 3.2rem); }
+  .subject-card-name { font-size: clamp(0.78rem, 1.4vw, 1.0rem); }
+  .subject-card-stat { font-size: clamp(0.65rem, 1vw, 0.80rem); }
+
+  .chapter-card { padding: 14px 8px; gap: 7px; }
+  .chapter-card-icon { font-size: clamp(2.0rem, 3.8vw, 3.0rem); }
+  .chapter-card-number { font-size: clamp(0.70rem, 1.1vw, 0.90rem); }
+
+  .screen-content {
+    padding: 14px 18px calc(var(--nav-height) + 12px);
+    gap: 12px;
+    max-width: 960px;
+  }
+
+  .home-card { padding: 26px 26px; max-width: 520px; gap: 18px; }
+  .solar-title { font-size: clamp(1.55rem, 3.8vw, 2.4rem); }
+  .cta-group { max-width: 280px; }
+  .btn-primary, .btn-secondary { padding: 13px 36px; font-size: 0.90rem; min-height: 48px; }
+
+  /* Sol tabs — compact but readable */
+  .sol-tab { width: 92px; height: 78px; border-radius: 14px; }
+  .sol-tab-icon-wrap { width: 38px; height: 38px; }
+  .sol-tab-active-icon i { font-size: 1.15rem; }
+  .sol-tab-solo-icon { font-size: 1.45rem; }
+  .sol-tab-label { font-size: 0.58rem; }
+
+  .sol-description-text { font-size: clamp(0.74rem, 1.1vw, 0.87rem); line-height: 1.65; }
+
+  /* Carousel — tighter */
+  .experiments-carousel-title { font-size: 1.35rem; margin-bottom: 16px; }
+  .carousel-nav { width: 36px; height: 36px; }
+  .experiments-carousel { max-width: 740px; gap: 18px; padding: 24px 22px; }
+  .experiment-card { width: 162px; height: 232px; }
+  .experiment-title { font-size: 0.88rem; }
+  .experiment-author, .experiment-stats { font-size: 0.72rem; }
+
+  /* Nav */
+  .sol-nav-btn { padding: 10px 30px; min-width: 118px; font-size: 0.82rem; }
+  .bottom-nav { max-width: 520px; }
+  .nav-btn { padding: 8px 13px; }
+  .nav-icon { font-size: 1.05rem; }
+  .nav-label { font-size: 0.56rem; }
+}
+
+/* ── TABLET 768–900px wide (iPad 11" portrait, Lenovo Tab portrait)
+       4:3 ratio or 3:2 portrait — very different from 16:9, needs special care.
+       Grid drops to 2-column to preserve card readability. */
 @media (max-width: 900px) {
+  :root { --nav-height: 58px; }
+
   .subjects-grid, .chapters-grid {
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: repeat(4, auto);
+    width: 90%;
+    height: auto;
+    flex: 0 0 auto;
+    max-height: 72vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(64,224,208,0.35) transparent;
   }
 
-  .sol-experience-layout { flex-direction: column; }
-  .sol-canvas-wrap { flex: 0 0 220px; width: 100%; }
+  .subjects-grid::-webkit-scrollbar,
+  .chapters-grid::-webkit-scrollbar { width: 3px; }
+  .subjects-grid::-webkit-scrollbar-thumb,
+  .chapters-grid::-webkit-scrollbar-thumb { background: rgba(64,224,208,0.30); border-radius: 3px; }
 
+  .subject-card { padding: 18px 14px; gap: 9px; }
+  .subject-card-icon { font-size: clamp(2.4rem, 5vw, 3.4rem); }
+  .subject-card-name { font-size: clamp(0.88rem, 2vw, 1.1rem); }
+  .subject-card-stat { font-size: clamp(0.70rem, 1.4vw, 0.85rem); }
+
+  .chapter-card { padding: 16px 12px; gap: 8px; }
+  .chapter-card-icon { font-size: clamp(2.2rem, 4.5vw, 3.2rem); }
+  .chapter-card-number { font-size: clamp(0.76rem, 1.6vw, 0.96rem); }
+
+  /* Chapter detail — stack canvas above description */
+  .sol-experience-layout { flex-direction: column; gap: 14px; }
+  .sol-canvas-wrap { flex: 0 0 200px; width: 100%; }
+  .sol-description-wrap { padding-left: 0; gap: 14px; }
+  .sol-description-text { font-size: clamp(0.76rem, 1.8vw, 0.90rem); }
+
+  /* Experiments in 1 column */
   .sol-exp-grid { grid-template-columns: 1fr; }
 
-  .chapter-tab-nav { gap: 7px; padding: 10px; }
-  .sol-tab { width: 90px; height: 80px; }
+  /* Tabs — horizontal scroll if needed */
+  .chapter-tab-nav { gap: 7px; padding: 9px 10px 7px; }
+  .sol-tab { width: 84px; height: 72px; border-radius: 12px; }
+  .sol-tab-icon-wrap { width: 34px; height: 34px; }
+  .sol-tab-active-icon i { font-size: 1.05rem; }
+  .sol-tab-solo-icon { font-size: 1.30rem; }
+  .sol-tab-label { font-size: 0.56rem; }
 
-  .bottom-nav { min-width: 95vw; border-radius: 18px 18px 0 0; padding: 0 12px; }
+  /* Carousel — use single scroll on narrow portrait */
+  .experiments-carousel-title { font-size: 1.25rem; margin-bottom: 14px; }
+  .carousel-wrapper { max-width: 95vw; gap: 10px; }
+  .carousel-nav { width: 34px; height: 34px; font-size: 0.85rem; }
+  .experiments-carousel { max-width: calc(95vw - 88px); gap: 14px; padding: 20px 18px; }
+  .experiment-card { width: 150px; height: 218px; border-radius: 13px; }
+  .experiment-card-img { font-size: 3.2rem; }
+  .experiment-card-info { padding: 11px; }
+  .experiment-title { font-size: 0.80rem; }
+  .experiment-author, .experiment-stats { font-size: 0.66rem; }
+
+  /* Bottom nav — full width pill on tablet portrait */
+  .bottom-nav { min-width: 95vw; border-radius: 18px 18px 0 0; padding: 0 10px; }
   .nav-btn { padding: 9px 14px; }
+  .nav-icon { font-size: 1.0rem; }
+  .nav-label { font-size: 0.54rem; }
+  .nav-divider { height: 22px; }
+
+  /* Home */
+  .home-card { padding: 22px 20px; max-width: 480px; gap: 16px; }
+  .solar-title { font-size: clamp(1.4rem, 4vw, 2.2rem); }
+  .subject-preview-row { flex-direction: column; align-items: stretch; }
+  .cta-group { max-width: 100%; }
+  .btn-primary, .btn-secondary { padding: 13px 28px; font-size: 0.88rem; min-height: 48px; }
+
+  /* Sol nav */
+  .sol-bottom-nav-row { gap: 13px; margin-top: 8px; }
+  .sol-nav-btn { padding: 10px 26px; min-width: 112px; font-size: 0.80rem; min-height: 44px; }
+
+  /* Header */
+  .page-header-card { padding: 10px 28px; }
+  .page-title-text { font-size: clamp(0.88rem, 2.2vw, 1.15rem); }
+  .curriculum-badge { top: 14px; right: 14px; font-size: 0.64rem; padding: 6px 13px; }
 }
 
+/* ── SMALL TABLET / LARGE PHONE — max-width: 600px ── */
 @media (max-width: 600px) {
   :root { --nav-height: 62px; }
 
@@ -1318,6 +1488,44 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   .sol-tab { width: 80px; height: 74px; font-size: 0.60rem; }
   .sol-tab-label { font-size: 0.60rem; }
   .chapter-tab-nav { overflow-x: auto; flex-wrap: nowrap; justify-content: flex-start; }
+}
+
+/* ── TABLET PORTRAIT — orientation-specific overrides for iPad-style 4:3 ratio ──
+       When device width > 768px but in portrait (height > width), maintain readable
+       card layouts and prevent vertical crushing. */
+@media (orientation: portrait) and (min-width: 600px) and (max-width: 1100px) {
+  :root { --nav-height: 58px; }
+
+  /* Show subjects in 2×4 grid in portrait — more vertical room */
+  .subjects-grid, .chapters-grid {
+    grid-template-columns: repeat(2, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    width: 86%;
+    height: auto;
+    flex: 0 0 auto;
+    gap: 12px;
+  }
+
+  .subject-card { padding: 22px 16px; }
+  .chapter-card { padding: 18px 14px; }
+
+  .subject-card-icon { font-size: clamp(2.8rem, 6vw, 4rem); }
+  .subject-card-name { font-size: clamp(0.92rem, 2.2vw, 1.2rem); }
+
+  /* Chapter panel — stack vertically in portrait */
+  .sol-experience-layout { flex-direction: column; }
+  .sol-canvas-wrap { flex: 0 0 240px; width: 100%; }
+
+  /* Slightly larger tabs since there's more horizontal space available */
+  .sol-tab { width: 96px; height: 82px; }
+  .sol-tab-label { font-size: 0.58rem; }
+
+  /* Bottom nav full-width in portrait */
+  .bottom-nav { min-width: 92vw; }
+
+  .screen-content { padding: 16px 20px calc(var(--nav-height) + 14px); }
+  .home-card { max-width: 500px; padding: 28px 24px; }
+  .solar-title { font-size: clamp(1.5rem, 4.5vw, 2.5rem); }
 }
 
 /* Smartboard (1400px+) */
