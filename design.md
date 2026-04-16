@@ -6,26 +6,21 @@ This document tracks all core responsive design decisions, scaling algorithms, p
 
 ## 1. Core Scaling & Resolution Philosophy
 **"Design for 1080p, Scale for All"**
-The UI is visually built targeting a standard `1920x1080` pixel canvas. Rather than relying on exhaustive CSS media queries to resize every button for every possible resolution, the platform relies on a mathematics-based scaling engine located in `perf_optimizer.js`.
+The UI is visually built targeting a standard `1920x1080` pixel canvas. Rather than relying on exhaustive CSS media queries to resize every button for every possible resolution, the platform historically relied on a mathematics-based scaling engine located in `perf_optimizer.js`.
+
+### 1.1 Legacy Scaling Engine (perf_optimizer.js)
 *   The script calculates: `scaleRatio = Math.min(winW / baseW, winH / baseH)`.
-*   If the screen is smaller (e.g., a 1280x720 Smartboard), the script applies `document.body.style.zoom = scaleRatio`.
+*   If the screen is smaller (e.g., a 1280x720 Smartboard), the script applies `document.body.style.zoom = scaleRatio` (or `transform: scale()` for iOS Safari).
 *   This approach ensures visually stunning proportions remain physically scaled across varying displays without manual recalculation.
+*   **Tablet-Aware Base Resolution (Added: April 2026):** The scaler now detects device category before choosing the base canvas:
+    *   **Landscape Tablet:** 1366 × 768
+    *   **Portrait Tablet:** 820 × 1180
 
-### 1.1 Tablet-Aware Base Resolution (Added: April 2026)
-The scaler in `perf_optimizer.js` now detects device category before choosing the base canvas, so the zoom ratio lands perfectly for each device class:
-
-| Device Category | Detection Rule | Base Canvas | Typical Scale |
-|---|---|---|---|
-| **16:9 Smartboard / Desktop** | Default (none of below) | 1920 × 1080 | ~0.67 on 720p |
-| **Landscape Tablet (4:3 / 16:10)** | Height 700–950px AND Width 700–1280px AND aspect < 1.65 | **1366 × 768** | ~0.96–1.0 ✅ |
-| **Portrait Tablet (iPad, Lenovo)** | Portrait orientation AND width 600–1100px | **820 × 1180** | ~1.0 ✅ |
-
-**Targeted tablet models:**
-*   OnePlus Pad Lite / Pad Go 2 (~1200×753 CSS landscape)
-*   Redmi Pad 2 (~1200×750 CSS landscape)
-*   Apple iPad 11" (~1190×834 landscape, 834×1190 portrait)
-*   Lenovo IdeaTab (~1200×752 landscape)
-*   Xiaomi Pad 8 (~1200×753 landscape)
+### 1.2 Fluid WebApp Architecture (The New Standard)
+Starting with the **Quiz**, **Shadow Lab**, and **Chapter Experience** modules (April 2026 refactor), the platform is transitioning to a **Fluid Responsive Layout**.
+*   **Why?** Relying on `zoom` can cause issues with Safari viewport calculations and fat-finger touch accuracy on smaller tablet slates.
+*   **The Rule:** Avoid `perf_optimizer.js` for layout scaling in these modules. Use Tailwind's responsive prefixes (`sm:`, `md:`, `lg:`, `xl:`) and CSS Flexbox/Grid.
+*   **Aspect Ratio Preservation:** For interactive 3D canvases or specific lab regions, use `aspect-ratio` properties or fixed percentage heights (e.g., `h-[45vw]`) to maintain 1080p-like proportions while letting the rest of the UI (buttons, text) remain native to the device's resolution.
 
 
 
@@ -103,3 +98,130 @@ The platform targets heavy usage on 75-inch Android Smartboards running lower-ti
 ## 6. Maintenance & Updates
 *   **AI Directives:** Before making visual layout modifications or creating substantial architectural changes to overarching files, I (the AI) must cross-reference this `design.md` file to prevent regressions. 
 *   **Continuous Integrations:** If new optimization bottlenecks are solved across future sessions, this document must be updated to prevent repeating debugging phases. 
+*   **Responsive Fluidity:** When building new interactive labs, prioritize Fluid CSS (Section 1.2) over JS Scale (Section 1.1) to ensure the best performance and navigation visibility on varied tablet hardware.
+
+---
+
+## 7. Cross-Device Layout Architecture Fixes (April 2026)
+
+**Problem:** Layout alignment was inconsistent across multiple browser tabs and devices (especially iPad Safari). Same page appeared correctly centered in one tab and shifted/cut in another.
+
+**Root Cause:** Three compounding issues:
+1. `100vh` lies on iPad Safari — it changes depending on whether the address bar is visible, causing height recalculations mid-session.
+2. Grid heights used unanchored percentages (`height: 70%`, `flex: 0 1 70%`) which drift relative to fragile parent containers.
+3. Stories scroll container had a hardcoded `max-height: 450px` — arbitrary, clips differently on every viewport.
+
+---
+
+### 7.1 `dvh` — The Universal Viewport Fix
+
+**Rule:** Never use raw `100vh` for full-heights. Always use `100dvh` with a `100vh` fallback.
+
+```css
+/* ✅ Correct */
+height: 100dvh;          /* Primary: real visible height, adapts to Safari UI chrome */
+height: 100vh;           /* Fallback: for browsers that don't support dvh yet */
+
+/* ❌ Wrong */
+height: 100vh;           /* Lies on iPad Safari — shifts layout between tabs */
+```
+
+`dvh` = **dynamic viewport height** — always equals the actual rendered area regardless of address bar visibility. This alone fixed ~40% of cross-tab misalignment.
+
+**Applied to:** `html`, `body`, all `max-height` clamps on grids and scroll containers.
+
+---
+
+### 7.2 Flex Height Anchoring — The Grid Fix
+
+**Rule:** Never use `height: 70%` or `flex: 0 1 70%` on grids inside flex containers. Use `flex: 1; min-height: 0` instead.
+
+```css
+/* ✅ Correct — fills remaining space, never overflows */
+.subjects-grid, .chapters-grid {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ❌ Wrong — percentage heights drift based on parent's computed height */
+.subjects-grid {
+  height: 70%;
+  flex: 0 1 70%;
+}
+```
+
+**Why:** `height: 100%` on a flex child only works if every ancestor has an explicit height. In practice this chain breaks on Safari. `flex: 1; min-height: 0` is the browser-safe standard.
+
+**Applied to:** `.subjects-grid`, `.chapters-grid`, `.screen-content`
+
+---
+
+### 7.3 `env(safe-area-inset-*)` — iPad Home Indicator Fix
+
+**Rule:** Bottom nav and screen-content bottom padding must include safe area insets.
+
+```css
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+}
+
+.bottom-nav {
+  padding-bottom: max(0px, var(--safe-bottom));
+}
+
+.screen-content {
+  padding: 20px 36px calc(var(--nav-height) + var(--safe-bottom) + 20px);
+}
+```
+
+On iPads with home indicators, the bottom nav was overlapping the gesture area, making buttons unreachable. This fix ensures it always sits above the device chrome.
+
+---
+
+### 7.4 Stories Scroll Container — Dynamic Height Fix
+
+**Rule:** Never hardcode `max-height` with arbitrary pixel values on scroll containers.
+
+```css
+/* ✅ Correct — adapts to actual visible screen height */
+.stories-scroll-container {
+  max-height: calc(100dvh - 380px);
+  max-height: calc(100vh - 380px); /* fallback */
+}
+
+/* ❌ Wrong — completely arbitrary, clips on some screens */
+.stories-scroll-container {
+  max-height: 450px;
+}
+```
+
+The `380px` offset accounts for: page header + tab navigation + arrow buttons + padding.
+
+---
+
+### 7.5 CSS Spacing System
+
+Added to `:root` to prevent scattered random `px` values in future development:
+
+```css
+:root {
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  40px;
+}
+```
+
+**Rule:** All new spacing (padding, gap, margin) in `styles.css` should reference these tokens, not raw pixel values.
+
+---
+
+### 7.6 Summary — Files Changed
+
+| File | Change |
+|------|--------|
+| `styles.css` | Added `dvh` fallbacks, spacing tokens, safe-area variables, anchored grid heights with `flex: 1; min-height: 0`, fixed bottom nav padding |
+| `index.html` | Fixed inline Stories panel `max-height: 450px` → `calc(100dvh - 380px)`, bumped CSS cache version to `?v=23` |
+

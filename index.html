@@ -25,7 +25,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <!-- IFP Performance Optimizer — must load before script.js -->
   <script src="perf_optimizer.js"></script>
-  <link rel="stylesheet" href="styles.css?v=22" />
+  <link rel="stylesheet" href="styles.css?v=23" />
 </head>
 <body>
 
@@ -631,14 +631,18 @@
                     padding:5px 20px;
                     margin:0 -20px;
                     scroll-behavior:smooth;
-                    max-height:450px;
+                    /* dvh = real viewport height that adapts to iPad address bar.
+                       Subtracting ~380px accounts for header/tabs/arrows chrome. */
+                    max-height: calc(100dvh - 380px);
+                    max-height: calc(100vh - 380px); /* fallback */
                 }
                 @media (min-width: 1400px) {
                     .stories-panel {
                         padding:28px 76px 18px;
                     }
                     .stories-scroll-container {
-                        max-height:min(720px, calc(100vh - 390px));
+                        max-height: min(720px, calc(100dvh - 390px));
+                        max-height: min(720px, calc(100vh - 390px));
                     }
                     .stories-arrow--bottom {
                         margin-top:auto;
@@ -650,7 +654,8 @@
                         padding:32px 88px 22px;
                     }
                     .stories-scroll-container {
-                        max-height:min(780px, calc(100vh - 420px));
+                        max-height: min(780px, calc(100dvh - 420px));
+                        max-height: min(780px, calc(100vh - 420px));
                         gap:28px;
                     }
                     .stories-arrow--bottom {

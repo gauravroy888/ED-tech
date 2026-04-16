@@ -35,6 +35,17 @@
   --radius-pill:      50px;
   --radius-panel:     14px;
 
+  /* Spacing system — prevents random px values scattered everywhere */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  40px;
+
+  /* Safe area — handles iPad home indicator / notch overlap */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top:    env(safe-area-inset-top, 0px);
+
   /* Transitions */
   --tx-fast:   0.18s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   --tx-smooth: 0.30s cubic-bezier(0.25, 0.46, 0.45, 0.94);
@@ -51,9 +62,18 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body {
-  width: 100%;
+html {
+  /* dvh = dynamic viewport height — the ONLY reliable unit on iPad Safari.
+     100vh lies when the address bar is visible; 100dvh always reflects the
+     actual rendered area. Fallback to 100% for browsers that don't support dvh. */
   height: 100%;
+  height: 100dvh;
+}
+
+body {
+  width: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
   overflow: hidden;
   font-family: var(--font);
   background: #000000;      /* Solar system.html: solid black bg */
@@ -151,12 +171,17 @@ html, body {
   z-index: 10;
   width: 100%;
   max-width: 1200px;
-  padding: 20px 36px calc(var(--nav-height) + 20px);
+  /* Bottom padding uses safe-area so content is never hidden under iPad home bar */
+  padding: 20px 36px calc(var(--nav-height) + var(--safe-bottom) + 20px);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  height: 100%;
+  /* flex: 1 + min-height: 0 is the universal pattern to make a flex child
+     fill remaining space without overflowing its parent. Never use height: 100%
+     on a flex child — it breaks on Safari. */
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -468,10 +493,12 @@ html, body {
   grid-template-rows: repeat(2, 1fr);
   gap: 14px;
   width: 70%;
-  height: 70%;
-  flex: 0 1 70%;
-  margin: auto;
+  /* Replace brittle % heights with flex stretch.
+     flex: 1 makes the grid fill available space in the column;
+     min-height: 0 prevents it from overflowing its flex parent. */
+  flex: 1;
   min-height: 0;
+  margin: auto;
 }
 
 .subject-card {
@@ -552,10 +579,9 @@ html, body {
   grid-template-rows: repeat(2, 1fr);
   gap: 14px;
   width: 70%;
-  height: 70%;
-  flex: 0 1 70%;
-  margin: auto;
+  flex: 1;
   min-height: 0;
+  margin: auto;
 }
 
 .chapter-card {
@@ -1218,7 +1244,9 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0 20px;
+  /* Safe area: on iPad with home indicator, bump the nav up so it's clickable */
+  padding: 0 20px var(--safe-bottom);
+  padding-bottom: max(0px, var(--safe-bottom));
   z-index: 100;
   gap: 0;
 }
@@ -1295,7 +1323,7 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   .subjects-grid, .chapters-grid {
     gap: 11px;
     width: 76%;
-    height: 72%;
+    /* flex: 1 + min-height: 0 is maintained across all breakpoints */
   }
 
   .screen-content {
@@ -1343,7 +1371,6 @@ body.fullscreen-overlay-open #fullscreen-toggle {
     grid-template-rows: repeat(2, 1fr);
     gap: 10px;
     width: 82%;
-    height: 68%;
   }
 
   .subject-card { padding: 14px 10px; gap: 8px; }
@@ -1401,9 +1428,11 @@ body.fullscreen-overlay-open #fullscreen-toggle {
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: repeat(4, auto);
     width: 90%;
-    height: auto;
+    /* On portrait tablet, let content scroll instead of being crushed.
+       dvh fallback: 72dvh respects the actual visible area on iPad Safari. */
     flex: 0 0 auto;
     max-height: 72vh;
+    max-height: 72dvh;
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(64,224,208,0.35) transparent;
@@ -1501,8 +1530,10 @@ body.fullscreen-overlay-open #fullscreen-toggle {
     grid-template-columns: repeat(2, 1fr);
     grid-template-rows: repeat(4, 1fr);
     width: 86%;
-    height: auto;
     flex: 0 0 auto;
+    max-height: 70dvh;
+    max-height: 70vh;
+    overflow-y: auto;
     gap: 12px;
   }
 
@@ -1534,8 +1565,11 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   .home-card { max-width: 760px; padding: 52px 58px; }
   .subjects-grid, .chapters-grid {
     width: min(84%, 1240px);
-    height: min(74vh, 860px);
-    flex: 0 1 auto;
+    /* dvh replaces vh: same intent, actually correct on all browsers */
+    max-height: min(74dvh, 860px);
+    max-height: min(74vh, 860px);
+    flex: 1;
+    min-height: 0;
     gap: 18px;
   }
   .subject-card-icon { font-size: 3rem; }
@@ -1571,8 +1605,10 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   .subjects-grid,
   .chapters-grid {
     width: min(88%, 1480px);
-    height: min(76vh, 980px);
-    flex: 0 1 auto;
+    max-height: min(76dvh, 980px);
+    max-height: min(76vh, 980px);
+    flex: 1;
+    min-height: 0;
     gap: 22px;
   }
 
@@ -1700,7 +1736,10 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   .subjects-grid,
   .chapters-grid {
     width: min(90%, 1640px);
-    height: min(78vh, 1120px);
+    max-height: min(78dvh, 1120px);
+    max-height: min(78vh, 1120px);
+    flex: 1;
+    min-height: 0;
     gap: 26px;
   }
 

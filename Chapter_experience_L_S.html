@@ -1199,7 +1199,11 @@
         }
 
         const clock = new THREE.Clock();
-        const animate = () => { animationFrameRef.current = requestAnimationFrame(animate); if (!window.IFP_VISIBLE) return; updateLogic(clock.getElapsedTime()); renderer.render(scene, camera); };
+        // IFP_VISIBLE is set by perf_optimizer.js when loaded in the parent shell.
+        // When undefined (standalone run or flag not yet set), it must NOT block
+        // rendering — only skip when explicitly === false (page hidden by OS/tab).
+        const animate = () => { animationFrameRef.current = requestAnimationFrame(animate); if (window.IFP_VISIBLE === false) return; updateLogic(clock.getElapsedTime()); renderer.render(scene, camera); };
+
 
         if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
         animate();
