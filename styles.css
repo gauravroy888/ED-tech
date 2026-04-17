@@ -171,8 +171,8 @@ body {
   z-index: 10;
   width: 100%;
   max-width: 1200px;
-  /* Bottom padding uses safe-area so content is never hidden under iPad home bar */
-  padding: 20px 36px calc(var(--nav-height) + var(--safe-bottom) + 20px);
+  /* Bottom padding: nav-height + 12px float margin + safe area so content clears the nav */
+  padding: 20px 36px calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 32px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -653,7 +653,8 @@ body {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
-  padding-bottom: 10px;
+  /* Must be large enough to clear the floating global nav + its 12px margin */
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 24px);
   position: relative;
 }
 
@@ -1037,8 +1038,12 @@ body {
   flex-shrink: 0;
   width: 100%;
   margin-top: 12px;
+  margin-bottom: 8px;
   padding: 6px 14px 2px;
   position: relative;
+  /* z-index above the screen content but below the global nav —
+     the buttons are never covered because padding-bottom on
+     .chapter-detail-content already lifts them above the nav */
   z-index: 50;
 }
 
@@ -1197,7 +1202,8 @@ body.fullscreen-overlay-open .curriculum-badge {
 }
 
 body.fullscreen-overlay-open #theme-toggle,
-body.fullscreen-overlay-open #fullscreen-toggle {
+body.fullscreen-overlay-open #fullscreen-toggle,
+body.fullscreen-overlay-open #global-bottom-nav {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
@@ -1244,22 +1250,27 @@ body.fullscreen-overlay-open #fullscreen-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Safe area: on iPad with home indicator, bump the nav up so it's clickable */
-  padding: 0 20px var(--safe-bottom);
-  padding-bottom: max(0px, var(--safe-bottom));
-  z-index: 100;
+  /* Use the larger of safe-bottom (14px iPad home bar) or 0, padded below buttons */
+  padding: 0 20px;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  /* z-index above all screens (z-index: 10) but below overlay (z-index: 200) */
+  z-index: 150;
   gap: 0;
+  /* Smooth hide/show for overlay open state */
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
-/* Bottom nav — white glass pill matching reference image */
+/* Bottom nav — fully rounded floating glass pill (not edge-flush)
+   This ensures it stays visible above the iOS Safari toolbar and home bar */
 .glass-nav {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--blur-strong));
   -webkit-backdrop-filter: blur(var(--blur-strong));
   border: 1px solid var(--glass-border);
-  border-bottom: none;
-  box-shadow: 0 -2px 24px rgba(0,0,0,0.18), 0 2px 12px rgba(255,255,255,0.08);
-  border-radius: 22px 22px 0 0;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35), 0 2px 12px rgba(255,255,255,0.08);
+  border-radius: 22px;
+  /* Float 12px above the safe area bottom so the toolbar never hides it */
+  bottom: max(env(safe-area-inset-bottom, 0px) + 12px, 12px) !important;
 }
 
 .nav-btn {

@@ -225,3 +225,143 @@ Added to `:root` to prevent scattered random `px` values in future development:
 | `styles.css` | Added `dvh` fallbacks, spacing tokens, safe-area variables, anchored grid heights with `flex: 1; min-height: 0`, fixed bottom nav padding |
 | `index.html` | Fixed inline Stories panel `max-height: 450px` → `calc(100dvh - 380px)`, bumped CSS cache version to `?v=23` |
 
+
+---
+
+## 8. Global Navigation & Fullscreen Button Architecture (April 2026)
+
+### Problem
+Two persistent visual regressions were observed on **iPad Safari** (and any browser with a visible bottom toolbar):
+
+1. **Bottom nav was cut off / hidden** — The main menu bar (HOME / STUDIES / WORLD / PROFILE / EXIT) was rendered *inside* each individual screen `<div>`. Since inactive screens have `opacity: 0; pointer-events: none`, navigating between tabs caused the nav inside the departing screen to disappear entirely before the new one appeared, creating a flash with no nav. On iPad, the nav was also half-hidden under the Safari toolbar.
+
+2. **Fullscreen button overlapped / clipped** — Positioned at `bottom: 24px`, it sat directly on top of the bottom nav and got clipped by the browser toolbar on mobile Safari.
+
+---
+
+### 8.1 Single Global Nav — The Architecture Fix
+
+**Rule:** The bottom navigation bar must exist **once**, outside all screen divs, as a top-level body element. It must never be duplicated inside per-screen containers.
+
+```html
+<!-- ✅ Correct — single instance, always visible regardless of active screen -->
+<!-- Placed at the end of <body>, after all screen divs and before the overlay -->
+<nav id="global-bottom-nav" class="bottom-nav glass-nav" aria-label="Main navigation">
+  <button class="nav-btn active" id="gnav-home" onclick="navigateTo('screen-home')" …>…</button>
+  <div class="nav-divider"></div>
+  <button class="nav-btn" id="gnav-studies" onclick="navigateTo('screen-subjects')" …>…</button>
+  …
+</nav>
+
+<!-- ❌ Wrong — nav inside each screen div, disappears on tab switch -->
+<div id="screen-home" class="screen active">
+  …
+  <nav class="bottom-nav glass-nav">…</nav>  <!-- gets hidden with the screen -->
+</div>
+```
+
+**Why it works:** `position: fixed` elements inside an `opacity: 0` container are still hidden by the browser's compositing rules. Moving the nav outside all screens makes it a truly persistent overlay.
+
+**z-index hierarchy:**
+
+| Layer | z-index | Element |
+|-------|---------|---------|
+| Screens | 10 | `.screen.active` |
+| Bottom Nav | 150 | `#global-bottom-nav` |
+| Sub-App Overlay | 200 | `#app-overlay` |
+| Global badges/buttons | 1000 | `.curriculum-badge`, `#theme-toggle`, `#fullscreen-toggle` |
+
+---
+
+### 8.2 Floating Pill Nav — The Toolbar Visibility Fix
+
+**Rule:** The bottom nav must be a **fully-rounded floating pill** positioned above the safe area, not a flat-bottomed bar flush to the screen edge.
+
+```css
+/* ✅ Correct — floats 12px above safe area bottom, always visible above iOS toolbar */
+.glass-nav {
+  border-radius: 22px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.35);
+  bottom: max(env(safe-area-inset-bottom, 0px) + 12px, 12px) !important;
+}
+
+.bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
+  z-index: 150;
+}
+
+/* ❌ Wrong — flush to screen edge, clipped by Safari toolbar */
+.glass-nav {
+  border-radius: 22px 22px 0 0;
+  border-bottom: none;
+}
+```
+
+**The `12px` float margin** ensures the nav clears the Safari bottom toolbar (which hovers ~50px from the bottom) and the iOS home indicator gesture bar.
+
+---
+
+### 8.3 Fullscreen Button — Anchored Above the Nav
+
+**Rule:** The Fullscreen button must be anchored relative to the nav height, not to the raw screen edge.
+
+```html
+<!-- ✅ Correct — always sits above the nav bar -->
+<button id="fullscreen-toggle" style="
+  position: fixed;
+  right: 24px;
+  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px);
+  z-index: 1000;
+">Fullscreen</button>
+
+<!-- ❌ Wrong — overlaps with nav, hidden under toolbar -->
+<button id="fullscreen-toggle" style="bottom: 24px;">Fullscreen</button>
+```
+
+---
+
+### 8.4 Nav Hidden During Overlay
+
+**Rule:** When the sub-app overlay (iframe) is open, the global nav must be hidden to avoid it showing through the iframe content.
+
+```css
+body.fullscreen-overlay-open #global-bottom-nav,
+body.fullscreen-overlay-open #fullscreen-toggle,
+body.fullscreen-overlay-open #theme-toggle,
+body.fullscreen-overlay-open .curriculum-badge {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+```
+
+---
+
+### 8.5 Screen Content Bottom Padding Update
+
+Since the nav now floats 12px above the bottom instead of sitting flush, screen content padding must account for the extra clearance:
+
+```css
+/* ✅ Correct — 32px clears the 12px float margin + a comfortable 20px visual gap */
+.screen-content {
+  padding: 20px 36px calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 32px);
+}
+
+/* ❌ Old — insufficient bottom clearance for floating nav */
+.screen-content {
+  padding: 20px 36px calc(var(--nav-height) + var(--safe-bottom) + 20px);
+}
+```
+
+---
+
+### 8.6 Summary — Files Changed
+
+| File | Change |
+|------|--------|
+| `index.html` | Removed 3× per-screen `<nav class="bottom-nav">` copies; added single `<nav id="global-bottom-nav">` as top-level body element after all screen divs |
+| `index.html` | `#fullscreen-toggle` bottom: `24px` → `calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 12px)` |
+| `styles.css` | `.glass-nav`: `border-radius: 22px 22px 0 0` → `22px` (full pill), removed `border-bottom: none`, added floating `bottom` with safe-area |
+| `styles.css` | `.bottom-nav`: z-index `100` → `150`, added `transition` for smooth overlay hide/show |
+| `styles.css` | `.screen-content`: bottom padding offset `+20px` → `+32px` to clear floating nav |
+| `styles.css` | `body.fullscreen-overlay-open`: added `#global-bottom-nav` to the hidden-elements rule |

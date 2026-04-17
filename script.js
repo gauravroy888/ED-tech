@@ -94,7 +94,19 @@
     }
 
     var inFullscreen = !!document.fullscreenElement;
-    fullscreenButton.textContent = inFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+    var label = inFullscreen ? 'Exit Fullscreen' : 'Fullscreen';
+    var iconSpan = fullscreenButton.querySelector('.fullscreen-icon');
+
+    // Update only the text node — preserve the icon <span> inside the button
+    if (iconSpan) {
+      // Remove existing text nodes, keep the span
+      Array.prototype.forEach.call(fullscreenButton.childNodes, function (node) {
+        if (node.nodeType === 3) { fullscreenButton.removeChild(node); }
+      });
+      fullscreenButton.appendChild(document.createTextNode(' ' + label));
+    } else {
+      fullscreenButton.textContent = label;
+    }
     fullscreenButton.setAttribute('aria-label', inFullscreen ? 'Exit fullscreen' : 'Enter fullscreen');
   }
 
