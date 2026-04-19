@@ -2,19 +2,25 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" id="vp-meta" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <!-- viewport-fit=cover: REQUIRED for env(safe-area-inset-*) CSS variables to work on
+       iOS Safari (notch phones, iPad with gesture bar). Without this flag the inset
+       values are always 0 and our max() safe-area padding patterns have no effect. -->
+  <meta name="viewport" id="vp-meta" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <!-- Fix extreme zoom on 4K smartboards: if physical pixel width >= 3000, lock CSS viewport to 1920px -->
   <script>
     (function(){
       var phys = window.screen.width * (window.devicePixelRatio || 1);
       if (phys >= 3000) {
         document.getElementById('vp-meta').content =
-          'width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no';
+          'width=1920, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
       }
     })();
   </script>
   <title>Edtech Island — Your Learning Universe</title>
   <meta name="description" content="Edtech Island — An immersive learning platform for ICSE students. Explore chapters, experiments, quizzes and mixed reality." />
+  <!-- theme-color matches the platform dark background for Android WebView chrome and
+       iOS Safari top bar — prevents jarring white flash during fullscreen transitions. -->
+  <meta name="theme-color" content="#03071a" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />

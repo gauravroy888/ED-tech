@@ -913,6 +913,10 @@
     currentScreenId = screenId;
     updateBottomNav(screenId);
 
+    // Hide the global nav whenever we're inside a chapter — show it on all
+    // main menu screens (home, subjects, chapters list, world, profile, exit).
+    document.body.classList.toggle('chapter-detail-open', screenId === 'screen-chapter-detail');
+
     if (screenId === 'screen-chapter-detail') {
       scheduleChapterSceneBoot();
     }

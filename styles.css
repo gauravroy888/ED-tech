@@ -2,7 +2,60 @@
    EDTECH ISLAND — GLASSMORPHIC UI
    Merged: Apple Vision Pro glass + Solar system.html UI patterns
    Optimised for smartboards & tablets
+   2026 Layout Architecture: Cascade Layer Reset + Container Queries
    ═══════════════════════════════════════════════════════════════ */
+
+/* ─── 2026 CASCADE LAYER RESET (lowest cascade specificity)
+   Mandated by the Architectural Review doc to form a flawless
+   mathematical foundation without overriding custom component logic.
+   ─── */
+@layer reset {
+  /* Global Box and Minimum Sizing Constraints:
+     Forces border-box everywhere and resets intrinsic min-sizes to 0
+     to prevent Flex/Grid tracks from blowing out viewport bounds. */
+  :where(*, *::before, *::after) {
+    box-sizing: border-box;
+    border-width: 0;
+    min-width: 0;   /* Critical: prevents flex items forcing parent overflow */
+  }
+
+  /* Viewport, Scrollbar, and Typography Stabilization:
+     text-size-adjust: 100% disables Android font-boosting heuristic.
+     scrollbar-gutter: stable eliminates 100vw horizontal layout shifts.
+     interpolate-size: allow-keywords enables smooth height transitions. */
+  :where(html) {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    scrollbar-gutter: stable;
+    interpolate-size: allow-keywords;
+  }
+
+  /* Body reset with overflow-x: clip (NOT hidden).
+     clip does not create a scroll container so position:sticky children
+     remain fully operational — overflow:hidden breaks them. */
+  :where(body) {
+    min-block-size: 100dvh;
+    margin: 0;
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Media Proportion and Hardware Acceleration:
+     display:block removes baseline clipping anomalies.
+     max-inline-size + block-size:auto enforces proportional sizing. */
+  :where(img, svg, video, canvas, iframe) {
+    display: block;
+    max-inline-size: 100%;
+    block-size: auto;
+  }
+
+  /* Safe-area bottom padding utility:
+     max() ensures a comfortable 1rem minimum on flat displays while
+     expanding for iOS gesture bars, notch cutouts, and foldable hinges. */
+  .safe-area-bottom-padding {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
 
 /* ─── DESIGN TOKENS ─── */
 :root {
@@ -54,27 +107,38 @@
   --font: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-/* ─── RESET ─── */
+/* ─── LEGACY RESET (complements @layer reset above) ─── */
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  min-width: 0;   /* Prevents flex/grid min-content blowouts globally */
   -webkit-tap-highlight-color: transparent;
 }
 
 html {
   /* dvh = dynamic viewport height — the ONLY reliable unit on iPad Safari.
      100vh lies when the address bar is visible; 100dvh always reflects the
-     actual rendered area. Fallback to 100% for browsers that don't support dvh. */
+     actual rendered area. Fallback to 100% for browsers that don't support dvh.
+     scrollbar-gutter: stable reserves physical scrollbar space so 100vw
+     never causes horizontal overflow on Windows classic scrollbar systems. */
   height: 100%;
   height: 100dvh;
+  -webkit-text-size-adjust: 100%;  /* Suppresses Android font-boosting */
+  text-size-adjust: 100%;          /* Standard property for same effect */
+  scrollbar-gutter: stable;        /* Prevents layout shift when scrollbar appears */
+  interpolate-size: allow-keywords; /* Enables smooth height:auto transitions */
 }
 
 body {
   width: 100%;
   min-height: 100%;
-  min-height: 100dvh;
-  overflow: hidden;
+  min-block-size: 100dvh;
+  /* CRITICAL: overflow-x:clip instead of overflow:hidden
+     clip does NOT create a scroll container, so position:sticky works.
+     overflow:hidden breaks nested sticky elements and scrolling contexts. */
+  overflow-x: clip;
+  overflow-y: hidden;
   font-family: var(--font);
   background: #000000;      /* Solar system.html: solid black bg */
   color: var(--text-primary);
@@ -134,7 +198,7 @@ body {
   position: absolute;
   inset: 0;
   z-index: 2;
-  overflow: hidden;
+  overflow: clip; /* clip prevents scroll container, hidden does not */
   pointer-events: none;
 }
 
@@ -170,19 +234,26 @@ body {
   position: relative;
   z-index: 10;
   width: 100%;
+  /* Use 100% not 100vw — 100vw includes scrollbar gutter on Windows
+     causing 15-17px horizontal overflow and right-side UI clipping. */
   max-width: 1200px;
-  /* Bottom padding: nav-height + 12px float margin + safe area so content clears the nav */
-  padding: 20px 36px calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 32px);
+  /* Bottom padding uses max() for safe-area integration:
+     max(base, env()) ensures comfortable spacing on flat displays
+     while expanding for gesture bars/notches on mobile. */
+  padding: 20px 36px max(calc(var(--nav-height) + 32px), calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 32px));
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 18px;
-  /* flex: 1 + min-height: 0 is the universal pattern to make a flex child
-     fill remaining space without overflowing its parent. Never use height: 100%
-     on a flex child — it breaks on Safari. */
+  /* flex:1 + min-height:0 is the universal safe pattern to fill remaining
+     space without overflowing. height:100% breaks on Safari. */
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  min-width: 0; /* Prevents flex child from being wider than viewport */
+  overflow: clip; /* clip vs hidden: preserves sticky contexts */
+  /* container-type for nested CQ units */
+  container-type: inline-size;
+  container-name: screen-content;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -489,16 +560,21 @@ body {
 
 .subjects-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  /* minmax(0, 1fr) is CRITICAL — prevents grid tracks from expanding to
+     min-content size when content overflows. Plain 1fr = minmax(auto, 1fr)
+     which ignores container bounds and causes layout blowouts. */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 14px;
   width: 70%;
-  /* Replace brittle % heights with flex stretch.
-     flex: 1 makes the grid fill available space in the column;
-     min-height: 0 prevents it from overflowing its flex parent. */
+  /* flex:1 + min-height:0 is the universal pattern to fill remaining
+     space without overflowing the flex parent. */
   flex: 1;
   min-height: 0;
   margin: auto;
+  /* Container query context so nested cards can self-adapt */
+  container-type: inline-size;
+  container-name: subjects-grid;
 }
 
 .subject-card {
@@ -514,7 +590,13 @@ body {
   font-family: var(--font);
   cursor: pointer;
   min-height: 0;
-  overflow: hidden;
+  min-width: 0; /* Prevents card from forcing parent grid blowout */
+  /* overflow:clip instead of overflow:hidden — does NOT create a scroll
+     container, so any position:sticky inside remains operational. */
+  overflow: clip;
+  /* overflow-clip-margin preserves outer box-shadow paint outside the
+     clip boundary — prevents drop shadows from being severed. */
+  overflow-clip-margin: 4px;
   position: relative;
 }
 
@@ -555,7 +637,7 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.25);
   border-radius: 6px;
   margin: 2px 0;
-  overflow: hidden;
+  overflow: clip; /* clip instead of hidden — no scroll container created */
   box-shadow: inset 0 1px 2px rgba(0,0,0,0.06);
 }
 
@@ -575,13 +657,16 @@ body {
 
 .chapters-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(2, 1fr);
+  /* minmax(0, 1fr) prevents grid tracks expanding to min-content size */
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
   gap: 14px;
   width: 70%;
   flex: 1;
   min-height: 0;
   margin: auto;
+  container-type: inline-size;
+  container-name: chapters-grid;
 }
 
 .chapter-card {
@@ -597,7 +682,9 @@ body {
   font-family: var(--font);
   cursor: pointer;
   min-height: 0;
-  overflow: hidden;
+  min-width: 0; /* Prevents card from forcing parent grid blowout */
+  overflow: clip; /* Preserves sticky contexts unlike overflow:hidden */
+  overflow-clip-margin: 4px; /* Prevents box-shadow severing at clip edge */
   position: relative;
 }
 
@@ -782,8 +869,11 @@ body {
 .tab-panels-area {
   flex: 1;
   min-height: 0;
+  min-width: 0; /* Prevent flex item from forcing parent overflow */
   position: relative;
-  overflow: hidden;
+  overflow: clip; /* clip: no scroll container, sticky children work correctly */
+  container-type: inline-size;
+  container-name: tab-panels;
 }
 
 .sol-tab-panel {
@@ -810,9 +900,12 @@ body {
 /* 3D Canvas section */
 .sol-canvas-wrap {
   flex: 0 0 58%;
+  min-width: 0; /* Prevents flex item forcing parent overflow */
   border: 1px solid rgba(255,255,255,0.10);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: clip; /* clip preserves shadow/border-radius correctly */
+  /* overflow-clip-margin preserves border-radius paint continuity */
+  overflow-clip-margin: content-box 2px;
   background: #000;
   position: relative;
   min-height: 0;
@@ -822,7 +915,7 @@ body {
   width: 100%;
   height: 100%;
   border-radius: 12px;
-  overflow: hidden;
+  overflow: clip;
 }
 
 .sol-canvas-loading {
@@ -1094,21 +1187,26 @@ body {
 .app-overlay-shell {
   position: relative;
   z-index: 210;
+  min-width: 0; /* Prevent shell from expanding beyond available space */
 }
 
 .app-overlay-frame {
   width: 100%;
   height: 100%;
   background: #000;
-  overflow: hidden;
+  overflow: clip; /* clip: no scroll container, positon:sticky preserved */
 }
 
 .app-iframe {
+  /* aspect-ratio for iframe: requires width:100% and height:auto.
+     Do NOT hardcode both width AND height — aspect-ratio is silently
+     ignored when both axes have explicit sizes, causing distortion. */
   width: 100%;
   height: 100%;
   border: none;
   background: #000;
   display: block;
+  max-inline-size: 100%;
 }
 
 .app-overlay--story {
@@ -1209,6 +1307,21 @@ body.fullscreen-overlay-open #global-bottom-nav {
   pointer-events: none;
 }
 
+/* ── Hide nav on chapter detail screen (main menu only rule) ──
+   The global bottom nav is only relevant on the main menu screens
+   (Home, Studies, World, Profile). Inside any chapter the nav is
+   hidden so it doesn't overlap chapter content or distract the learner.
+   The body class is toggled by navigateTo() in script.js.          */
+body.chapter-detail-open #global-bottom-nav,
+body.chapter-detail-open #fullscreen-toggle,
+body.chapter-detail-open #theme-toggle {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+
 @media (max-width: 900px) {
   .curriculum-badge {
     top: 16px;
@@ -1244,19 +1357,21 @@ body.fullscreen-overlay-open #global-bottom-nav {
   left: 50%;
   transform: translateX(-50%);
   width: auto;
+  /* Use 95vw not 95% of viewport — percentage on fixed is relative to
+     containing block which for fixed = viewport, same as vw */
   max-width: 640px;
   min-width: min(540px, 95vw);
   height: var(--nav-height);
   display: flex;
   align-items: center;
   justify-content: center;
-  /* Use the larger of safe-bottom (14px iPad home bar) or 0, padded below buttons */
+  /* max() for safe-area: ensures comfortable baseline on flat displays,
+     expands for iOS gesture bars and Android nav overlays. */
   padding: 0 20px;
   padding-bottom: max(env(safe-area-inset-bottom, 0px), 0px);
-  /* z-index above all screens (z-index: 10) but below overlay (z-index: 200) */
+  /* z-index above all screens but below overlay */
   z-index: 150;
   gap: 0;
-  /* Smooth hide/show for overlay open state */
   transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
@@ -1806,6 +1921,37 @@ body.fullscreen-overlay-open #global-bottom-nav {
 /* Accessibility */
 :focus-visible { outline: 2px solid var(--accent-cyan); outline-offset: 3px; }
 
+/* box-decoration-break: clone ensures that inline highlighted text
+   (educational annotations, code snippets) retains its rounded padding
+   and background on BOTH lines when wrapping occurs on narrow screens. */
+mark, .inline-highlight, [data-highlight] {
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  border-radius: 3px;
+  padding: 0 0.2em;
+}
+
+/* content-visibility: auto — defers rendering of off-screen grid items.
+   contain-intrinsic-size provides placeholder height to prevent scrollbar
+   jumping when off-screen elements collapse from 300px to 0. */
+.subject-card,
+.chapter-card {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 180px;
+}
+
+/* Fluid typographic lock via clamp() + cqi (Container Query inline unit).
+   cqi scales relative to the query container width — NOT the global
+   viewport, preventing text ballooning inside compact nested sidebars. */
+@container subjects-grid (max-width: 600px) {
+  .subject-card-name { font-size: clamp(0.7rem, 3.5cqi, 1rem); }
+  .subject-card-icon { font-size: clamp(2rem, 8cqi, 3.5rem); }
+}
+@container chapters-grid (max-width: 600px) {
+  .chapter-card-number { font-size: clamp(0.65rem, 3cqi, 0.9rem); }
+  .chapter-card-icon { font-size: clamp(1.8rem, 7cqi, 3rem); }
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -1868,20 +2014,24 @@ body.fullscreen-overlay-open #global-bottom-nav {
 
 .experiments-carousel {
   flex: 1; /* Automatically takes exact room between arrows */
+  min-width: 0; /* Critical: prevents flex item from forcing parent overflow */
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 30px; /* 30px gap perfectly bounds the hidden rightside elements */
+  gap: 30px;
   width: 100%;
-  max-width: 950px; /* 30px padding + 4 cards (800) + 3 gaps (90) + 30px padding = 950px */
+  max-width: 950px;
   overflow-x: auto;
-  padding: 35px 30px; /* 30px padding on the sides completely prevents shadow clipping mask */
+  /* overflow-x:auto on a single axis while clip on the other —
+     stops lateral bleed without breaking vertical scroll context */
+  overflow-y: clip;
+  padding: 35px 30px;
   scroll-snap-type: x mandatory;
   -ms-overflow-style: none;
   scrollbar-width: none;
   scroll-behavior: smooth;
-  
-  /* Feathered edge gradient to smoothly fade the drop shadows and strictly prevent any bleed */
+
+  /* Feathered mask preserves box-shadows at edges without clipping */
   -webkit-mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
   mask-image: linear-gradient(to right, transparent 0, black 28px, black calc(100% - 28px), transparent 100%);
 }
@@ -1900,10 +2050,18 @@ body.fullscreen-overlay-open #global-bottom-nav {
   border: 1px solid rgba(255, 255, 255, 0.2);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  /* overflow:clip not hidden — preserves sticky children, clip edge mirrors border-radius */
+  overflow: clip;
+  /* overflow-clip-margin: allows box-shadow to paint 12px outside the element
+     boundary before the hard clip begins — prevents shadow truncation at card edges */
+  overflow-clip-margin: 12px;
   scroll-snap-align: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1),
+              border-color 0.3s ease;
+  /* GPU-accelerate via transform, not left/top repaints */
+  will-change: transform;
   position: relative;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
 }
@@ -2063,6 +2221,8 @@ body.light-theme #theme-toggle { color: rgba(30, 30, 40, 0.92); }
 /* ═══════════════════════════════════════════════════════════════
    4K ULTRA-WIDE VIEWPORT (DPR≈1 scenario where CSS viewport = 3840px)
    The viewport JS fix handles the zoom, but this breakpoint handles edge cases.
+   Key insight: at 4K with high DPR, Android maps 3840 physical px to ~960 CSS px.
+   Use fluid grids + cqw units (not px breakpoints) for true DPR independence.
    ═══════════════════════════════════════════════════════════════ */
 @media (min-width: 3000px) {
   :root {
@@ -2071,17 +2231,19 @@ body.light-theme #theme-toggle { color: rgba(30, 30, 40, 0.92); }
   }
   .screen-content {
     max-width: 2800px;
-    padding: 44px 140px calc(var(--nav-height) + 44px);
+    /* Use calc(var(--nav-height) + env()) with max() for safe-area safety */
+    padding: 44px 140px max(calc(var(--nav-height) + 44px), calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 44px));
   }
   .subjects-grid, .chapters-grid {
     width: min(92%, 2600px);
-    height: min(78vh, 1300px);
+    /* dvh vs vh: dvh adapts to keyboard/address-bar; vh does not */
+    height: min(78dvh, 1300px);
     gap: 36px;
   }
   .home-card { max-width: 1200px; }
   .bottom-nav  { max-width: 1200px; }
   .sol-tab { width: 190px; height: 150px; }
-  /* Particles off at 4K native too */
+  /* Particles off at 4K native — reduces GPU compositor layers */
   .particles { display: none; }
 }
 
