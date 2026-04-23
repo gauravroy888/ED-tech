@@ -1191,6 +1191,58 @@
     }
   }
 
+  function initSpringSlider() {
+    var knob = document.getElementById('spring-slider-knob');
+    var track = document.getElementById('spring-slider-track');
+    if (!knob || !track) return;
+
+    var isDragging = false;
+    var startY = 0;
+    var currentOffset = 0;
+    var maxOffset = 0;
+
+    function onStart(e) {
+      isDragging = true;
+      // Calculate maxOffset dynamically because the parent tab might be hidden on load
+      maxOffset = (track.clientHeight / 2) - (knob.clientHeight / 2);
+      
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      startY = clientY - currentOffset;
+      knob.style.transition = 'none';
+      knob.classList.add('dragging');
+    }
+
+    function onMove(e) {
+      if (!isDragging) return;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      currentOffset = clientY - startY;
+
+      if (currentOffset > maxOffset) currentOffset = maxOffset;
+      if (currentOffset < -maxOffset) currentOffset = -maxOffset;
+
+      knob.style.transform = 'translate(-50%, calc(-50% + ' + currentOffset + 'px))';
+    }
+
+    function onEnd(e) {
+      if (!isDragging) return;
+      isDragging = false;
+      knob.classList.remove('dragging');
+      
+      // Snap back to center
+      currentOffset = 0;
+      knob.style.transition = 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)';
+      knob.style.transform = 'translate(-50%, -50%)';
+    }
+
+    knob.addEventListener('mousedown', onStart);
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onEnd);
+    
+    knob.addEventListener('touchstart', onStart, {passive: true});
+    window.addEventListener('touchmove', onMove, {passive: false});
+    window.addEventListener('touchend', onEnd);
+  }
+
   function init() {
     applySavedTheme();
     syncFullscreenButton();
@@ -1200,6 +1252,7 @@
     bindPrimaryButtons();
     bindPlaceholderButtons();
     bindOverlayEvents();
+    initSpringSlider();
 
     document.addEventListener('fullscreenchange', syncFullscreenButton);
     window.addEventListener('beforeunload', destroyChapterScene);

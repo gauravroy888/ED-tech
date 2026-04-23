@@ -38,9 +38,12 @@
 
     <style>
         body { margin: 0; padding: 0; overflow-x: hidden; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+        /* ── Premium Cyan Scrollbar ─── */
+        .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(34,211,238,0.4) transparent; }
+        .custom-scrollbar::-webkit-scrollbar { width: 8px; height: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.04); border-radius: 8px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: linear-gradient(180deg, rgba(34,211,238,0.55), rgba(34,211,238,0.25)); border-radius: 8px; border: 1px solid rgba(34,211,238,0.2); }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: linear-gradient(180deg, rgba(34,211,238,0.85), rgba(34,211,238,0.5)); }
 
         /* ── Tablet-Specific Quiz Layout Overrides ─────────────────────────────────
            Targets landscape tablets (≤1200px) and portrait slates (≤850px).
@@ -65,6 +68,64 @@
         @media (min-width: 861px) and (max-width: 1200px) and (orientation: landscape) {
             .option-btn { min-height: 56px !important; }
         }
+        /* ── Spring Slider ─── */
+        .spring-slider-container {
+            position: fixed;
+            right: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+        .spring-slider-track {
+            position: relative;
+            width: 4px;
+            height: 260px;
+            background: rgba(255, 255, 255, 0.10);
+            border-radius: 4px;
+            box-shadow: 0 0 12px rgba(34,211,238,0.08);
+        }
+        .spring-slider-knob {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 38% 36%, #ffffff, #c8c8c8);
+            box-shadow:
+                0 0 0 3px rgba(0,0,0,0.55),
+                0 0 18px rgba(34,211,238,0.35),
+                inset 0 1px 3px rgba(255,255,255,0.8),
+                inset 0 -2px 4px rgba(0,0,0,0.3);
+            cursor: grab;
+            pointer-events: all;
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .spring-slider-knob.dragging {
+            cursor: grabbing;
+            box-shadow:
+                0 0 0 3px rgba(0,0,0,0.55),
+                0 0 30px rgba(34,211,238,0.65),
+                inset 0 1px 3px rgba(255,255,255,0.8),
+                inset 0 -2px 4px rgba(0,0,0,0.3);
+        }
+        .knob-inner {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 40% 38%, rgba(255,255,255,0.9), rgba(180,180,180,0.4));
+        }
+        /* hide native scrollbar on slider-scroll containers */
+        .slider-scroll-container { scrollbar-width: none; }
+        .slider-scroll-container::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body class="bg-transparent">
@@ -385,6 +446,113 @@ back: "Back", quizProgress: "Quiz Progress",
             />
         );
 
+        const SpringSlider = ({ scrollTargetRef }) => {
+            const trackRef = useRef(null);
+            const knobRef = useRef(null);
+        
+            useEffect(() => {
+                const knob = knobRef.current;
+                const track = trackRef.current;
+                if (!knob || !track) return;
+        
+                let isDragging = false;
+                let startY = 0;
+                let currentOffset = 0;
+                let maxOffset = 0;
+                let animationFrameId = null;
+        
+                const scrollLoop = () => {
+                    if (isDragging && currentOffset !== 0 && maxOffset > 0) {
+                        // Scroll the target ref's element, or fall back to window
+                        const target = scrollTargetRef && scrollTargetRef.current;
+                        const speedFactor = currentOffset / maxOffset;
+                        const maxSpeed = 22;
+                        if (target) {
+                            target.scrollTop += speedFactor * maxSpeed;
+                        } else {
+                            window.scrollBy({ top: speedFactor * maxSpeed, left: 0, behavior: 'instant' });
+                        }
+                    }
+                    animationFrameId = requestAnimationFrame(scrollLoop);
+                };
+                
+                scrollLoop();
+        
+                const onStart = (e) => {
+                    isDragging = true;
+                    const trackHeight = track.clientHeight;
+                    const knobHeight = knob.clientHeight;
+                    maxOffset = (trackHeight - knobHeight) / 2;
+                    
+                    knob.style.transition = 'none';
+                    knob.classList.add('dragging');
+                    
+                    startY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                };
+        
+                const onMove = (e) => {
+                    if (!isDragging) return;
+                    
+                    const clientY = e.type.includes('mouse') ? e.clientY : e.touches[0].clientY;
+                    let deltaY = clientY - startY;
+                    
+                    if (Math.abs(deltaY) > maxOffset) {
+                        const excess = Math.abs(deltaY) - maxOffset;
+                        const resistedExcess = excess * 0.3; 
+                        deltaY = Math.sign(deltaY) * (maxOffset + resistedExcess);
+                    }
+                    
+                    currentOffset = deltaY;
+                    knob.style.transform = `translate(-50%, calc(-50% + ${currentOffset}px)) scale(1.1)`;
+                };
+        
+                const onEnd = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+                    
+                    knob.style.transition = 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease';
+                    knob.classList.remove('dragging');
+                    
+                    currentOffset = 0;
+                    knob.style.transform = `translate(-50%, -50%) scale(1)`;
+                };
+        
+                const handleTouchMove = (e) => {
+                    if (isDragging) e.preventDefault();
+                    onMove(e);
+                };
+        
+                knob.addEventListener('mousedown', onStart);
+                window.addEventListener('mousemove', onMove, { passive: false });
+                window.addEventListener('mouseup', onEnd);
+                
+                knob.addEventListener('touchstart', onStart, { passive: true });
+                window.addEventListener('touchmove', handleTouchMove, { passive: false });
+                window.addEventListener('touchend', onEnd);
+        
+                return () => {
+                    cancelAnimationFrame(animationFrameId);
+                    knob.removeEventListener('mousedown', onStart);
+                    window.removeEventListener('mousemove', onMove);
+                    window.removeEventListener('mouseup', onEnd);
+                    
+                    knob.removeEventListener('touchstart', onStart);
+                    window.removeEventListener('touchmove', handleTouchMove);
+                    window.removeEventListener('touchend', onEnd);
+                };
+            }, [scrollTargetRef]);
+        
+            return (
+                <div className="spring-slider-container" style={{ position: 'fixed' }}>
+                    <div ref={trackRef} className="spring-slider-track">
+                        <div ref={knobRef} className="spring-slider-knob">
+                            <div className="knob-inner"></div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // Array shuffler utility
         const shuffleArray = (array) => {
             const arr = [...array];
@@ -407,7 +575,10 @@ back: "Back", quizProgress: "Quiz Progress",
             const [timeStr, setTimeStr] = useState("10:02 AM"); 
             const [activeQuizData, setActiveQuizData] = useState(null); 
             const [showExitModal, setShowExitModal] = useState(false); 
-            const [showSubmitModal, setShowSubmitModal] = useState(false); 
+            const [showSubmitModal, setShowSubmitModal] = useState(false);
+            // Scroll refs for review and analysis screens (must be top-level, not inside conditionals)
+            const reviewScrollRef = useRef(null);
+            const analysisScrollRef = useRef(null);
 
             const ui = T[lang] || T.en;
             const currentSectionId = SECTIONS[currentSectionIdx].id;
@@ -563,16 +734,16 @@ back: "Back", quizProgress: "Quiz Progress",
 
             const returnToPlatform = () => {
                 playSound('click');
+                // Use postMessage so the parent's closeOverlay() runs in full —
+                // that function removes 'fullscreen-overlay-open' from document.body,
+                // which is what was keeping the global nav hidden after returning.
+                // Direct DOM manipulation (adding 'hidden' manually) skipped that
+                // cleanup step and left the nav permanently invisible.
                 if (window.parent && window.parent !== window) {
-                    const overlay = window.parent.document.getElementById('app-overlay');
-                    if (overlay) {
-                        overlay.classList.add('hidden');
-                        setTimeout(() => {
-                            const iframe = window.parent.document.getElementById('app-iframe');
-                            if (iframe) { iframe.src = ''; iframe.removeAttribute('src'); }
-                        }, 300);
-                        return;
-                    }
+                    window.parent.postMessage('closeOverlay', '*');
+                } else {
+                    // Fallback: if not in an iframe just reload to a safe state
+                    window.location.href = 'index.html';
                 }
             };
 
@@ -688,80 +859,86 @@ back: "Back", quizProgress: "Quiz Progress",
 
             if (appState === 'analysis') {
                 return (
-                    <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 sm:pt-24 pb-12 relative overflow-hidden">
+                    <div className="h-screen w-full text-white font-sans flex flex-col relative overflow-hidden">
                         <DefaultAppBackground />
 
                         {renderTopNav(false, () => { playSound('click'); setAppState('results'); }, ui.backToResults || T.en.backToResults)}
 
-                        <div className="relative z-10 w-full max-w-4xl h-fit mt-4">
-                            <h2 className="text-3xl sm:text-4xl font-serif tracking-wide text-center mb-8 sm:mb-12 text-white/90">{ui.analysisTitle || T.en.analysisTitle}</h2>
-                            <div className="space-y-8 sm:space-y-12">
-                                {SECTIONS.map((section, sIdx) => {
-                                    const qList = activeQuizData[section.id];
-                                    return (
-                                        <div key={section.id} className="glass-panel-card p-6 sm:p-8">
-                                            <h3 className="text-xl sm:text-2xl font-serif tracking-wide text-cyan-400 mb-6 sm:mb-8 border-b border-white/10 pb-4 flex items-center gap-3">
-                                                <LucideIcon name={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
-                                                {translatedSections[sIdx].title.toUpperCase()}
-                                            </h3>
-                                            <div className="space-y-6 sm:space-y-8">
-                                                {qList.map((q, qIdx) => {
-                                                    const transQ = getTranslatedQuestion(q, lang);
-                                                    const userAnsIdx = answers[q.id];
-                                                    const isCorrect = userAnsIdx === q.correct;
-                                                    
-                                                    return (
-                                                        <div key={q.id} className="bg-black/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/5 relative">
-                                                            {/* Correct/Incorrect icon indicator */}
-                                                            <div className={`absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg border-2 sm:border-4 border-slate-900 ${userAnsIdx === undefined ? 'bg-slate-500' : (isCorrect ? 'bg-green-500' : 'bg-red-500')}`}>
-                                                                <LucideIcon name={userAnsIdx === undefined ? "minus" : (isCorrect ? "check" : "x")} className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" />
-                                                            </div>
+                        {/* Spring Slider scroll controller */}
+                        <SpringSlider scrollTargetRef={analysisScrollRef} />
 
-                                                            <p className="text-lg sm:text-xl leading-relaxed text-white/90 font-medium mb-6 pr-4">
-                                                                <span className="font-bold text-cyan-300 mr-2">Q{qIdx + 1}.</span>{transQ.text}
-                                                            </p>
-
-                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6">
-                                                                {q.shuffledIndices.map((origIdx, rIdx) => {
-                                                                    const optText = transQ.options[origIdx];
-                                                                    let btnClass = "bg-white/5 border-white/10 text-white/60";
-                                                                    let iconName = null;
-                                                                    let iconColor = "";
-
-                                                                    if (origIdx === q.correct) {
-                                                                        btnClass = "bg-green-500/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)] text-green-100";
-                                                                        iconName = "check-circle-2";
-                                                                        iconColor = "text-green-400";
-                                                                    } else if (origIdx === userAnsIdx && origIdx !== q.correct) {
-                                                                        btnClass = "bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] text-red-100";
-                                                                        iconName = "x-circle";
-                                                                        iconColor = "text-red-400";
-                                                                    }
-
-                                                                    return (
-                                                                        <div key={rIdx} className={`relative overflow-hidden flex items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${btnClass}`}>
-                                                                            <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mr-3 bg-black/20 shrink-0 text-sm sm:text-base">{rIdx + 1}</span>
-                                                                            <span className="text-sm sm:text-base leading-snug">{optText}</span>
-                                                                            {iconName && <LucideIcon name={iconName} className={`w-4 h-4 sm:w-5 sm:h-5 ml-auto shrink-0 ${iconColor}`} />}
-                                                                        </div>
-                                                                    );
-                                                                })}
-                                                            </div>
-
-                                                            <div className="bg-cyan-900/30 border border-cyan-500/20 p-4 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col gap-2 sm:gap-3 text-cyan-100">
-                                                                <div className="flex items-center gap-2">
-                                                                    <LucideIcon name="lightbulb" className="w-5 h-5 text-cyan-400 shrink-0" />
-                                                                    <span className="font-bold text-sm sm:text-base">{ui.explanationLabel || 'Explanation'}</span>
+                        {/* Scrollable content — no native scrollbar, slider drives it */}
+                        <div ref={analysisScrollRef} className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden slider-scroll-container pt-20 pb-12 px-4 sm:px-6">
+                            <div className="w-full max-w-4xl mx-auto">
+                                <h2 className="text-3xl sm:text-4xl font-serif tracking-wide text-center mb-8 sm:mb-12 text-white/90">{ui.analysisTitle || T.en.analysisTitle}</h2>
+                                <div className="space-y-8 sm:space-y-12">
+                                    {SECTIONS.map((section, sIdx) => {
+                                        const qList = activeQuizData[section.id];
+                                        return (
+                                            <div key={section.id} className="glass-panel-card p-6 sm:p-8">
+                                                <h3 className="text-xl sm:text-2xl font-serif tracking-wide text-cyan-400 mb-6 sm:mb-8 border-b border-white/10 pb-4 flex items-center gap-3">
+                                                    <LucideIcon name={section.icon} className="w-5 h-5 sm:w-6 sm:h-6 shrink-0" />
+                                                    {translatedSections[sIdx].title.toUpperCase()}
+                                                </h3>
+                                                <div className="space-y-6 sm:space-y-8">
+                                                    {qList.map((q, qIdx) => {
+                                                        const transQ = getTranslatedQuestion(q, lang);
+                                                        const userAnsIdx = answers[q.id];
+                                                        const isCorrect = userAnsIdx === q.correct;
+                                                        
+                                                        return (
+                                                            <div key={q.id} className="bg-black/20 rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-white/5 relative">
+                                                                {/* Correct/Incorrect icon indicator */}
+                                                                <div className={`absolute -top-3 -right-3 sm:-top-4 sm:-right-4 w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center shadow-lg border-2 sm:border-4 border-slate-900 ${userAnsIdx === undefined ? 'bg-slate-500' : (isCorrect ? 'bg-green-500' : 'bg-red-500')}`}>
+                                                                    <LucideIcon name={userAnsIdx === undefined ? "minus" : (isCorrect ? "check" : "x")} className="w-4 h-4 sm:w-5 sm:h-5 text-slate-900" />
                                                                 </div>
-                                                                <p className="text-sm leading-relaxed">{transQ.explanation || transQ.hint || transQ.e}</p>
+
+                                                                <p className="text-lg sm:text-xl leading-relaxed text-white/90 font-medium mb-6 pr-4">
+                                                                    <span className="font-bold text-cyan-300 mr-2">Q{qIdx + 1}.</span>{transQ.text}
+                                                                </p>
+
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6">
+                                                                    {q.shuffledIndices.map((origIdx, rIdx) => {
+                                                                        const optText = transQ.options[origIdx];
+                                                                        let btnClass = "bg-white/5 border-white/10 text-white/60";
+                                                                        let iconName = null;
+                                                                        let iconColor = "";
+
+                                                                        if (origIdx === q.correct) {
+                                                                            btnClass = "bg-green-500/20 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)] text-green-100";
+                                                                            iconName = "check-circle-2";
+                                                                            iconColor = "text-green-400";
+                                                                        } else if (origIdx === userAnsIdx && origIdx !== q.correct) {
+                                                                            btnClass = "bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.2)] text-red-100";
+                                                                            iconName = "x-circle";
+                                                                            iconColor = "text-red-400";
+                                                                        }
+
+                                                                        return (
+                                                                            <div key={rIdx} className={`relative overflow-hidden flex items-center p-3 sm:p-4 rounded-xl sm:rounded-2xl border ${btnClass}`}>
+                                                                                <span className="w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center mr-3 bg-black/20 shrink-0 text-sm sm:text-base">{rIdx + 1}</span>
+                                                                                <span className="text-sm sm:text-base leading-snug">{optText}</span>
+                                                                                {iconName && <LucideIcon name={iconName} className={`w-4 h-4 sm:w-5 sm:h-5 ml-auto shrink-0 ${iconColor}`} />}
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+
+                                                                <div className="bg-cyan-900/30 border border-cyan-500/20 p-4 sm:p-5 rounded-xl sm:rounded-2xl flex flex-col gap-2 sm:gap-3 text-cyan-100">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <LucideIcon name="lightbulb" className="w-5 h-5 text-cyan-400 shrink-0" />
+                                                                        <span className="font-bold text-sm sm:text-base">{ui.explanationLabel || 'Explanation'}</span>
+                                                                    </div>
+                                                                    <p className="text-sm leading-relaxed">{transQ.explanation || transQ.hint || transQ.e}</p>
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )
-                                                })}
+                                                        )
+                                                    })}
+                                                </div>
                                             </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -770,12 +947,16 @@ back: "Back", quizProgress: "Quiz Progress",
 
             if (appState === 'review') {
                 return (
-                    <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 pb-12 relative overflow-hidden">
+                    <div className="h-screen w-full text-white font-sans flex flex-col relative overflow-hidden">
                         <DefaultAppBackground />
 
                         {renderTopNav(true, handleBackClick, ui.back || T.en.back)}
 
-                        <div className="relative z-10 w-full max-w-4xl glass-panel-card p-6 sm:p-8 md:p-12 h-fit mt-4">
+                        {/* Spring Slider scroll controller */}
+                        <SpringSlider scrollTargetRef={reviewScrollRef} />
+
+                        <div ref={reviewScrollRef} className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden slider-scroll-container pt-20 pb-12 px-4 sm:px-6 flex justify-center">
+                        <div className="w-full max-w-4xl glass-panel-card p-6 sm:p-8 md:p-12 h-fit mt-4">
                             <h2 className="text-3xl sm:text-4xl font-serif tracking-wide text-center mb-8 sm:mb-12 text-white/90">{ui.reviewTitle || T.en.reviewTitle}</h2>
                             
                             <div className="space-y-6 sm:space-y-8 mb-8 sm:mb-12">
@@ -828,6 +1009,7 @@ back: "Back", quizProgress: "Quiz Progress",
                                 </button>
                             </div>
                         </div>
+                        </div>
                         {exitModalJSX}
                         {submitModalJSX}
                     </div>
@@ -877,10 +1059,12 @@ back: "Back", quizProgress: "Quiz Progress",
             if (isLastQuestionInSection && isLastSection) mainActionText = ui.reviewBtn || T.en.reviewBtn;
 
             return (
-                <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 pb-12 relative overflow-hidden">
+                <div className="min-h-screen w-full text-white font-sans flex justify-center p-4 sm:p-6 pt-24 pb-12 relative overflow-x-hidden">
                     <DefaultAppBackground />
 
                     {renderTopNav(true, handleBackClick, ui.back)}
+
+                    <SpringSlider />
 
                     <div className="relative z-10 w-full max-w-[1400px] h-auto flex flex-col lg:flex-row gap-6 mt-4">
                         

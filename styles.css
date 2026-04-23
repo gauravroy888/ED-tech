@@ -1389,6 +1389,7 @@ body.chapter-detail-open #theme-toggle {
 }
 
 .nav-btn {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1403,27 +1404,85 @@ body.chapter-detail-open #theme-toggle {
   font-weight: 700;
   letter-spacing: 0.08em;
   cursor: pointer;
-  transition: color var(--tx-fast), transform var(--tx-fast);
+  transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
   border-radius: 10px;
+  overflow: hidden;
+}
+
+/* Base glowing dot/line hidden by default */
+.nav-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 45%;
+  height: 3px;
+  background: #22d3ee;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 8px rgba(34, 211, 238, 0.8), 0 0 15px rgba(34, 211, 238, 0.4);
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+  opacity: 0;
+}
+
+/* Background gradient pulse hidden by default */
+.nav-btn::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top, rgba(34, 211, 238, 0.18) 0%, transparent 65%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
 }
 
 .nav-btn:hover {
   color: rgba(255, 255, 255, 0.95);
   transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .nav-btn.active {
   color: #ffffff;
+  transform: translateY(-3px);
 }
 
-.nav-btn.active .nav-icon {
-  /* Subtle cyan tint on active icon only */
-  filter: drop-shadow(0 0 4px rgba(64, 224, 208, 0.65));
+/* Active glowing line */
+.nav-btn.active::before {
+  transform: translateX(-50%) scaleX(1);
+  opacity: 1;
+}
+
+/* Active background glow */
+.nav-btn.active::after {
+  opacity: 1;
 }
 
 /* Slightly larger nav icons to match reference */
-.nav-icon   { font-size: 1.15rem; line-height: 1; }
-.nav-label  { font-size: 0.60rem; letter-spacing: 0.09em; font-weight: 700; }
+.nav-icon {
+  font-size: 1.15rem; 
+  line-height: 1;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.3s ease;
+}
+
+.nav-btn.active .nav-icon {
+  /* Stronger cyan tint and slight scale on active icon */
+  filter: drop-shadow(0 0 6px rgba(34, 211, 238, 0.85)) brightness(1.15);
+  transform: scale(1.18);
+}
+
+.nav-label {
+  font-size: 0.60rem; 
+  letter-spacing: 0.09em; 
+  font-weight: 700;
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), text-shadow 0.3s ease;
+}
+
+.nav-btn.active .nav-label {
+  /* Slight push down to balance icon scale up */
+  transform: translateY(2px);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+}
 
 .nav-divider {
   width: 1px;
@@ -2285,4 +2344,71 @@ body.light-theme #theme-toggle { color: rgba(30, 30, 40, 0.92); }
 @keyframes iframe-dot-bounce {
   0%, 80%, 100% { transform: scale(0); opacity: 0.5; }
   40% { transform: scale(1); opacity: 1; box-shadow: 0 0 20px rgba(64, 224, 208, 0.6); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SPRING SLIDER UI
+   ═══════════════════════════════════════════════════════════════ */
+.spring-slider-container {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 65vh;
+  min-height: 350px;
+  max-height: 700px;
+  width: 60px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+}
+
+.spring-slider-track {
+  width: 12px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  position: relative;
+  box-shadow: inset 0 2px 15px rgba(0, 0, 0, 0.9), 0 0 20px rgba(64, 224, 208, 0.15);
+  backdrop-filter: blur(8px);
+}
+
+.spring-slider-knob {
+  width: 64px;
+  height: 64px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 50%;
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  cursor: grab;
+  touch-action: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
+
+.spring-slider-knob.dragging {
+  transition: none;
+  cursor: grabbing;
+}
+
+.knob-inner {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #ffffff, #c0c0c0);
+  border-radius: 50%;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.8), inset 0 -4px 10px rgba(0, 0, 0, 0.3), inset 0 4px 10px rgba(255, 255, 255, 0.9);
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  transition: filter 0.3s ease, box-shadow 0.3s ease;
+}
+
+.spring-slider-knob:hover .knob-inner {
+  filter: brightness(1.2);
+  box-shadow: 0 6px 25px rgba(64, 224, 208, 0.6), inset 0 -4px 10px rgba(0, 0, 0, 0.3), inset 0 4px 10px rgba(255, 255, 255, 0.9);
 }

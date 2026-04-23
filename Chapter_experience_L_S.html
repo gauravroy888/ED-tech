@@ -522,6 +522,173 @@
       return null;
     }
 
+    // ─── Spring Scroll Slider ─────────────────────────────────────────────────
+    // A vertical slider that scrolls the chapter content area. Drag down to
+    // scroll down, drag up to scroll up. Releases back to center with a spring.
+    const SpringScrollSlider = ({ scrollRef }) => {
+      const knobRef = useRef(null);
+      const trackRef = useRef(null);
+      const isDragging = useRef(false);
+      const startY = useRef(0);
+      const currentOffset = useRef(0);
+      const animFrame = useRef(null);
+
+      useEffect(() => {
+        const knob = knobRef.current;
+        const track = trackRef.current;
+        if (!knob || !track) return;
+
+        const getMaxOffset = () => (track.clientHeight / 2) - (knob.clientHeight / 2) - 4;
+
+        // Scroll the content proportionally to drag position
+        const applyScroll = (offset, maxOff) => {
+          const el = scrollRef.current;
+          if (!el) return;
+          const maxScroll = el.scrollHeight - el.clientHeight;
+          if (maxScroll <= 0) return;
+          // Map offset range [-maxOff, +maxOff] → [0, maxScroll]
+          const ratio = (offset + maxOff) / (maxOff * 2);
+          el.scrollTop = ratio * maxScroll;
+        };
+
+        const onStart = (e) => {
+          isDragging.current = true;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          startY.current = clientY - currentOffset.current;
+          knob.style.transition = 'none';
+          knob.classList.add('spring-slider-knob--dragging');
+          if (animFrame.current) cancelAnimationFrame(animFrame.current);
+        };
+
+        const onMove = (e) => {
+          if (!isDragging.current) return;
+          const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+          const maxOff = getMaxOffset();
+          let offset = clientY - startY.current;
+          offset = Math.max(-maxOff, Math.min(maxOff, offset));
+          currentOffset.current = offset;
+          knob.style.transform = `translate(-50%, calc(-50% + ${offset}px))`;
+          applyScroll(offset, maxOff);
+        };
+
+        const onEnd = () => {
+          if (!isDragging.current) return;
+          isDragging.current = false;
+          knob.classList.remove('spring-slider-knob--dragging');
+          // Spring back to center
+          currentOffset.current = 0;
+          knob.style.transition = 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)';
+          knob.style.transform = 'translate(-50%, -50%)';
+        };
+
+        knob.addEventListener('mousedown', onStart);
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onEnd);
+        knob.addEventListener('touchstart', onStart, { passive: true });
+        window.addEventListener('touchmove', onMove, { passive: false });
+        window.addEventListener('touchend', onEnd);
+
+        return () => {
+          knob.removeEventListener('mousedown', onStart);
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onEnd);
+          knob.removeEventListener('touchstart', onStart);
+          window.removeEventListener('touchmove', onMove);
+          window.removeEventListener('touchend', onEnd);
+        };
+      }, [scrollRef]);
+
+      return (
+        <div
+          ref={trackRef}
+          id="spring-scroll-track"
+          style={{
+            position: 'fixed',
+            right: '18px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            height: '38vh',
+            width: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 40,
+            pointerEvents: 'auto',
+          }}
+        >
+          {/* Track line */}
+          <div style={{
+            position: 'absolute',
+            left: '50%',
+            top: '10px',
+            bottom: '10px',
+            width: '2px',
+            transform: 'translateX(-50%)',
+            background: 'linear-gradient(to bottom, transparent, rgba(255,255,255,0.35) 20%, rgba(255,255,255,0.35) 80%, transparent)',
+            borderRadius: '2px',
+          }} />
+          {/* Top arrow hint */}
+          <div style={{
+            position: 'absolute',
+            top: '2px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            opacity: 0.4,
+            fontSize: '10px',
+            color: '#fff',
+            userSelect: 'none',
+            lineHeight: 1,
+          }}>▲</div>
+          {/* Bottom arrow hint */}
+          <div style={{
+            position: 'absolute',
+            bottom: '2px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            opacity: 0.4,
+            fontSize: '10px',
+            color: '#fff',
+            userSelect: 'none',
+            lineHeight: 1,
+          }}>▼</div>
+          {/* Knob */}
+          <div
+            ref={knobRef}
+            id="spring-scroll-knob"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at 38% 35%, rgba(255,255,255,0.95) 0%, rgba(200,210,220,0.92) 60%, rgba(160,175,190,0.88) 100%)',
+              border: '2px solid rgba(255,255,255,0.6)',
+              boxShadow: '0 2px 12px rgba(0,0,0,0.45), inset 0 1px 2px rgba(255,255,255,0.8)',
+              cursor: 'grab',
+              userSelect: 'none',
+              touchAction: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'box-shadow 0.2s ease',
+            }}
+          >
+            {/* Center pip */}
+            <div style={{
+              width: '6px',
+              height: '6px',
+              borderRadius: '50%',
+              background: 'rgba(80,100,120,0.5)',
+              boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.3)',
+            }} />
+          </div>
+        </div>
+      );
+    };
+    // ─────────────────────────────────────────────────────────────────────────
+
     function App() {
       const [language, setLanguage] = useState('en');
       const [activeTopicIndex, setActiveTopicIndex] = useState(0);
@@ -536,6 +703,7 @@
       const bulbStateRef = useRef(true);
       const audio3DRef = useRef(null);
       const audio2DRef = useRef(null);
+      const scrollContainerRef = useRef(null);
 
       // Synchronise audio between 2D and 3D modes
       useEffect(() => {
@@ -1242,9 +1410,39 @@
             </button>
           </div>
 
+          {/* Spring scroll slider — right edge, scrolls the content area */}
+          <SpringScrollSlider scrollRef={scrollContainerRef} />
+
           <div className="absolute inset-0 z-0 bg-black/40"></div>
 
-          <div className="relative z-10 w-full max-w-7xl px-4 flex flex-col items-center gap-6">
+          {/* Scrollable content wrapper — enables vertical scrolling on small screens */}
+          <div
+            ref={scrollContainerRef}
+            style={{
+              position: 'relative',
+              zIndex: 10,
+              width: '100%',
+              height: '100vh',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              paddingRight: '52px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+          <style>{`
+            #chapter-scroll-wrap::-webkit-scrollbar { display: none; }
+            #spring-scroll-knob.spring-slider-knob--dragging {
+              cursor: grabbing !important;
+              box-shadow: 0 4px 20px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.8), 0 0 0 3px rgba(255,255,255,0.25) !important;
+            }
+          `}</style>
+
+          <div className="relative z-10 w-full max-w-7xl px-4 flex flex-col items-center gap-6" style={{ paddingTop: '56px', paddingBottom: '32px' }}>
 
             <div className="px-6 py-2 rounded-full border border-white/20 bg-white/5 backdrop-blur-md shadow-lg text-white/90 text-[10px] sm:text-sm tracking-widest font-semibold uppercase whitespace-nowrap overflow-hidden text-ellipsis">
               {language === 'en' ? "Chapter 11 Light shadow and reflection" : "अध्याय 11 प्रकाश छाया और परावर्तन"}
@@ -1385,6 +1583,7 @@
             </div>
 
           </div>
+          </div>{/* end scrollContainerRef */}
         </div>
       );
     }
