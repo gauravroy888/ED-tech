@@ -18,7 +18,10 @@
     <!-- Include Edtech Island styles -->
     <link rel="stylesheet" href="styles.css">
     
-    <!-- CDNs for Tailwind, React, Babel, and Lucide Icons -->
+    <!-- CDNs for React, Babel, Tailwind, and Lucide Icons -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -31,9 +34,6 @@
         }
       }
     </script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
 
     <style>
@@ -132,6 +132,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        /** @jsxRuntime classic */
         const { useState, useEffect, useMemo, useRef } = React;
 
         // --- CUSTOM ICON COMPONENT FOR VANILLA HTML ---
